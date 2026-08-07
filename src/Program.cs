@@ -129,9 +129,11 @@ class Program
 
         var processInfo = new ProcessStartInfo
         {
-            FileName = executablePath,
+            FileName = "/usr/bin/env",
             UseShellExecute = false
         };
+
+        processInfo.ArgumentList.Add(command);
 
         foreach (string arg in args)
         {
