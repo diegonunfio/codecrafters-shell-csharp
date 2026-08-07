@@ -1001,6 +1001,24 @@ class Program
             return;
         }
 
+        foreach (BackgroundJob job in backgroundJobs)
+        {
+            if (job.Process == null)
+                continue;
+
+            try
+            {
+                if (job.Process.HasExited)
+                {
+                    job.Process.WaitForExit();
+                    job.Status = "Done";
+                }
+            }
+            catch
+            {
+            }
+        }
+
         List<BackgroundJob> orderedJobs =
             backgroundJobs
                 .OrderBy(job => job.JobNumber)
@@ -1044,7 +1062,17 @@ class Program
                 job.Status.PadRight(24)
             );
 
-            output.Append(job.Command);
+            string commandToDisplay = job.Command;
+
+            if (job.Status == "Done")
+            {
+                commandToDisplay =
+                    RemoveTrailingBackgroundMarker(
+                        commandToDisplay
+                    );
+            }
+
+            output.Append(commandToDisplay);
             output.Append(Environment.NewLine);
         }
 
@@ -1053,6 +1081,42 @@ class Program
             outputFile,
             appendOutput
         );
+
+        List<BackgroundJob> completedJobs =
+            backgroundJobs
+                .Where(job => job.Status == "Done")
+                .ToList();
+
+        foreach (BackgroundJob job in completedJobs)
+        {
+            backgroundJobs.Remove(job);
+
+            try
+            {
+                job.Process?.Dispose();
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    static string RemoveTrailingBackgroundMarker(
+        string command)
+    {
+        string trimmed =
+            command.TrimEnd();
+
+        if (!trimmed.EndsWith(
+            "&",
+            StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        return trimmed
+            .Substring(0, trimmed.Length - 1)
+            .TrimEnd();
     }
 
     static void HandleComplete(
