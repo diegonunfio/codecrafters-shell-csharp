@@ -8,6 +8,7 @@ using System.Text;
 class Program
 {
     static bool runProgram = true;
+    static int nextJobNumber = 1;
 
     static readonly HashSet<string> builtins = new()
     {
@@ -34,6 +35,17 @@ class Program
                 continue;
 
             List<string> parts = ParseInput(input);
+
+            if (parts.Count == 0)
+                continue;
+
+            bool runInBackground = false;
+
+            if (parts.Count > 0 && parts[^1] == "&")
+            {
+                runInBackground = true;
+                parts.RemoveAt(parts.Count - 1);
+            }
 
             if (parts.Count == 0)
                 continue;
@@ -110,7 +122,8 @@ class Program
                 outputFile,
                 errorFile,
                 appendOutput,
-                appendError
+                appendError,
+                runInBackground
             );
         }
     }
@@ -546,6 +559,7 @@ class Program
             processInfo.ArgumentList.Add(previousWord);
 
             processInfo.Environment.Clear();
+
             processInfo.Environment["COMP_LINE"] =
                 fullCommandLine;
 
@@ -848,7 +862,8 @@ class Program
         string? outputFile,
         string? errorFile,
         bool appendOutput,
-        bool appendError)
+        bool appendError,
+        bool runInBackground)
     {
         switch (command)
         {
@@ -937,7 +952,8 @@ class Program
                     outputFile,
                     errorFile,
                     appendOutput,
-                    appendError
+                    appendError,
+                    runInBackground
                 );
                 break;
         }
@@ -1401,7 +1417,8 @@ class Program
         string? outputFile,
         string? errorFile,
         bool appendOutput,
-        bool appendError)
+        bool appendError,
+        bool runInBackground)
     {
         string? executablePath =
             FindExecutable(command);
@@ -1433,65 +1450,147 @@ class Program
         foreach (string arg in args)
             processInfo.ArgumentList.Add(arg);
 
-        using Process? process =
-            Process.Start(processInfo);
+        Process? process = Process.Start(processInfo);
 
         if (process == null)
             return;
 
-        string? stdout = null;
-        string? stderr = null;
+        if (runInBackground)
+        {
+            int jobNumber = nextJobNumber++;
+
+            Console.WriteLine(
+                $"[{jobNumber}] {process.Id}"
+            );
+
+            if (outputFile != null || errorFile != null)
+            {
+                HandleBackgroundRedirection(
+                    process,
+                    outputFile,
+                    errorFile,
+                    appendOutput,
+                    appendError
+                );
+            }
+
+            return;
+        }
+
+        using (process)
+        {
+            string? stdout = null;
+            string? stderr = null;
+
+            if (outputFile != null)
+            {
+                stdout =
+                    process.StandardOutput
+                        .ReadToEnd();
+            }
+
+            if (errorFile != null)
+            {
+                stderr =
+                    process.StandardError
+                        .ReadToEnd();
+            }
+
+            process.WaitForExit();
+
+            if (outputFile != null)
+            {
+                if (appendOutput)
+                {
+                    File.AppendAllText(
+                        outputFile,
+                        stdout ?? ""
+                    );
+                }
+                else
+                {
+                    File.WriteAllText(
+                        outputFile,
+                        stdout ?? ""
+                    );
+                }
+            }
+
+            if (errorFile != null)
+            {
+                if (appendError)
+                {
+                    File.AppendAllText(
+                        errorFile,
+                        stderr ?? ""
+                    );
+                }
+                else
+                {
+                    File.WriteAllText(
+                        errorFile,
+                        stderr ?? ""
+                    );
+                }
+            }
+        }
+    }
+
+    static void HandleBackgroundRedirection(
+        Process process,
+        string? outputFile,
+        string? errorFile,
+        bool appendOutput,
+        bool appendError)
+    {
+        if (outputFile != null)
+            PrepareOutputFile(outputFile, appendOutput);
+
+        if (errorFile != null)
+            PrepareErrorFile(errorFile, appendError);
 
         if (outputFile != null)
         {
-            stdout =
-                process.StandardOutput
-                    .ReadToEnd();
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data == null)
+                    return;
+
+                try
+                {
+                    File.AppendAllText(
+                        outputFile,
+                        e.Data + Environment.NewLine
+                    );
+                }
+                catch
+                {
+                }
+            };
+
+            process.BeginOutputReadLine();
         }
 
         if (errorFile != null)
         {
-            stderr =
-                process.StandardError
-                    .ReadToEnd();
-        }
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data == null)
+                    return;
 
-        process.WaitForExit();
+                try
+                {
+                    File.AppendAllText(
+                        errorFile,
+                        e.Data + Environment.NewLine
+                    );
+                }
+                catch
+                {
+                }
+            };
 
-        if (outputFile != null)
-        {
-            if (appendOutput)
-            {
-                File.AppendAllText(
-                    outputFile,
-                    stdout ?? ""
-                );
-            }
-            else
-            {
-                File.WriteAllText(
-                    outputFile,
-                    stdout ?? ""
-                );
-            }
-        }
-
-        if (errorFile != null)
-        {
-            if (appendError)
-            {
-                File.AppendAllText(
-                    errorFile,
-                    stderr ?? ""
-                );
-            }
-            else
-            {
-                File.WriteAllText(
-                    errorFile,
-                    stderr ?? ""
-                );
-            }
+            process.BeginErrorReadLine();
         }
     }
 }
