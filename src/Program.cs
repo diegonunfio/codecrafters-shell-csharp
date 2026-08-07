@@ -79,7 +79,61 @@ class Program
         {
             char c = input[i];
 
-            if (c == '\\' && !inSingleQuotes && !inDoubleQuotes)
+            if (inSingleQuotes)
+            {
+                if (c == '\'')
+                {
+                    inSingleQuotes = false;
+                }
+                else
+                {
+                    current.Append(c);
+                }
+
+                argumentStarted = true;
+                continue;
+            }
+
+            if (inDoubleQuotes)
+            {
+                if (c == '"')
+                {
+                    inDoubleQuotes = false;
+                    argumentStarted = true;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    if (i + 1 < input.Length)
+                    {
+                        char next = input[i + 1];
+
+                        if (next == '"' || next == '\\')
+                        {
+                            current.Append(next);
+                            i++;
+                        }
+                        else
+                        {
+                            current.Append('\\');
+                        }
+                    }
+                    else
+                    {
+                        current.Append('\\');
+                    }
+
+                    argumentStarted = true;
+                    continue;
+                }
+
+                current.Append(c);
+                argumentStarted = true;
+                continue;
+            }
+
+            if (c == '\\')
             {
                 argumentStarted = true;
 
@@ -92,21 +146,21 @@ class Program
                 continue;
             }
 
-            if (c == '\'' && !inDoubleQuotes)
+            if (c == '\'')
             {
-                inSingleQuotes = !inSingleQuotes;
+                inSingleQuotes = true;
                 argumentStarted = true;
                 continue;
             }
 
-            if (c == '"' && !inSingleQuotes)
+            if (c == '"')
             {
-                inDoubleQuotes = !inDoubleQuotes;
+                inDoubleQuotes = true;
                 argumentStarted = true;
                 continue;
             }
 
-            if (char.IsWhiteSpace(c) && !inSingleQuotes && !inDoubleQuotes)
+            if (char.IsWhiteSpace(c))
             {
                 if (argumentStarted)
                 {
