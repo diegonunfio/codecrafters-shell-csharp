@@ -42,7 +42,6 @@ class Program
 
             string? outputFile = null;
             string? errorFile = null;
-
             bool appendOutput = false;
             bool appendError = false;
 
@@ -137,7 +136,6 @@ class Program
                 if (input.Length > 0)
                 {
                     input.Length--;
-
                     Console.Write("\b \b");
                 }
 
@@ -148,7 +146,7 @@ class Program
             {
                 string current = input.ToString();
 
-                if (!current.Contains(' '))
+                if (!current.Any(char.IsWhiteSpace))
                 {
                     string? match = autocompleteBuiltins
                         .FirstOrDefault(x =>
@@ -449,7 +447,6 @@ class Program
                 if (argumentStarted)
                 {
                     args.Add(current.ToString());
-
                     current.Clear();
                     argumentStarted = false;
                 }
@@ -474,11 +471,7 @@ class Program
     {
         if (args.Length == 0)
         {
-            PrepareErrorFile(
-                errorFile,
-                appendError
-            );
-
+            PrepareErrorFile(errorFile, appendError);
             return;
         }
 
@@ -502,12 +495,7 @@ class Program
             }
 
             Directory.SetCurrentDirectory(home);
-
-            PrepareErrorFile(
-                errorFile,
-                appendError
-            );
-
+            PrepareErrorFile(errorFile, appendError);
             return;
         }
 
@@ -534,10 +522,7 @@ class Program
             Path.GetFullPath(targetPath)
         );
 
-        PrepareErrorFile(
-            errorFile,
-            appendError
-        );
+        PrepareErrorFile(errorFile, appendError);
     }
 
     static void HandleType(
@@ -561,8 +546,7 @@ class Program
             return;
         }
 
-        string? executablePath =
-            FindExecutable(command);
+        string? executablePath = FindExecutable(command);
 
         if (executablePath != null)
         {
@@ -590,19 +574,13 @@ class Program
         if (string.IsNullOrEmpty(path))
             return null;
 
-        foreach (
-            string directory
-            in path.Split(Path.PathSeparator)
-        )
+        foreach (string directory in path.Split(Path.PathSeparator))
         {
             if (string.IsNullOrEmpty(directory))
                 continue;
 
             string fullPath =
-                Path.Combine(
-                    directory,
-                    command
-                );
+                Path.Combine(directory, command);
 
             if (!File.Exists(fullPath))
                 continue;
@@ -613,15 +591,9 @@ class Program
                     File.GetUnixFileMode(fullPath);
 
                 bool executable =
-                    mode.HasFlag(
-                        UnixFileMode.UserExecute
-                    ) ||
-                    mode.HasFlag(
-                        UnixFileMode.GroupExecute
-                    ) ||
-                    mode.HasFlag(
-                        UnixFileMode.OtherExecute
-                    );
+                    mode.HasFlag(UnixFileMode.UserExecute) ||
+                    mode.HasFlag(UnixFileMode.GroupExecute) ||
+                    mode.HasFlag(UnixFileMode.OtherExecute);
 
                 if (executable)
                     return fullPath;
@@ -643,8 +615,7 @@ class Program
         bool appendOutput,
         bool appendError)
     {
-        string? executablePath =
-            FindExecutable(command);
+        string? executablePath = FindExecutable(command);
 
         if (executablePath == null)
         {
@@ -657,24 +628,20 @@ class Program
             return;
         }
 
-        var processInfo =
-            new ProcessStartInfo
-            {
-                FileName = "/usr/bin/env",
-                UseShellExecute = false,
-                RedirectStandardOutput =
-                    outputFile != null,
-                RedirectStandardError =
-                    errorFile != null
-            };
+        var processInfo = new ProcessStartInfo
+        {
+            FileName = "/usr/bin/env",
+            UseShellExecute = false,
+            RedirectStandardOutput = outputFile != null,
+            RedirectStandardError = errorFile != null
+        };
 
         processInfo.ArgumentList.Add(command);
 
         foreach (string arg in args)
             processInfo.ArgumentList.Add(arg);
 
-        using Process? process =
-            Process.Start(processInfo);
+        using Process? process = Process.Start(processInfo);
 
         if (process == null)
             return;
@@ -683,41 +650,27 @@ class Program
         string? stderr = null;
 
         if (outputFile != null)
-            stdout =
-                process.StandardOutput.ReadToEnd();
+            stdout = process.StandardOutput.ReadToEnd();
 
         if (errorFile != null)
-            stderr =
-                process.StandardError.ReadToEnd();
+            stderr = process.StandardError.ReadToEnd();
 
         process.WaitForExit();
 
         if (outputFile != null)
         {
             if (appendOutput)
-                File.AppendAllText(
-                    outputFile,
-                    stdout ?? ""
-                );
+                File.AppendAllText(outputFile, stdout ?? "");
             else
-                File.WriteAllText(
-                    outputFile,
-                    stdout ?? ""
-                );
+                File.WriteAllText(outputFile, stdout ?? "");
         }
 
         if (errorFile != null)
         {
             if (appendError)
-                File.AppendAllText(
-                    errorFile,
-                    stderr ?? ""
-                );
+                File.AppendAllText(errorFile, stderr ?? "");
             else
-                File.WriteAllText(
-                    errorFile,
-                    stderr ?? ""
-                );
+                File.WriteAllText(errorFile, stderr ?? "");
         }
     }
 }
