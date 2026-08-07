@@ -36,6 +36,7 @@ class Program
 
             string? outputFile = null;
             string? errorFile = null;
+            bool appendOutput = false;
 
             List<string> commandParts = new();
 
@@ -46,6 +47,19 @@ class Program
                     if (i + 1 < parts.Count)
                     {
                         outputFile = parts[i + 1];
+                        appendOutput = false;
+                        i++;
+                    }
+
+                    continue;
+                }
+
+                if (parts[i] == ">>" || parts[i] == "1>>")
+                {
+                    if (i + 1 < parts.Count)
+                    {
+                        outputFile = parts[i + 1];
+                        appendOutput = true;
                         i++;
                     }
 
@@ -72,7 +86,13 @@ class Program
             string command = commandParts[0];
             string[] args = commandParts.Skip(1).ToArray();
 
-            ExecuteCommand(command, args, outputFile, errorFile);
+            ExecuteCommand(
+                command,
+                args,
+                outputFile,
+                errorFile,
+                appendOutput
+            );
         }
     }
 
@@ -80,7 +100,8 @@ class Program
         string command,
         string[] args,
         string? outputFile,
-        string? errorFile)
+        string? errorFile,
+        bool appendOutput)
     {
         switch (command)
         {
@@ -91,21 +112,23 @@ class Program
             case "echo":
                 WriteOutput(
                     string.Join(" ", args) + Environment.NewLine,
-                    outputFile
+                    outputFile,
+                    appendOutput
                 );
 
                 CreateEmptyFileIfNeeded(errorFile);
                 break;
 
             case "type":
-                HandleType(args, outputFile);
+                HandleType(args, outputFile, appendOutput);
                 CreateEmptyFileIfNeeded(errorFile);
                 break;
 
             case "pwd":
                 WriteOutput(
                     Directory.GetCurrentDirectory() + Environment.NewLine,
-                    outputFile
+                    outputFile,
+                    appendOutput
                 );
 
                 CreateEmptyFileIfNeeded(errorFile);
@@ -120,13 +143,17 @@ class Program
                     command,
                     args,
                     outputFile,
-                    errorFile
+                    errorFile,
+                    appendOutput
                 );
                 break;
         }
     }
 
-    static void WriteOutput(string text, string? outputFile)
+    static void WriteOutput(
+        string text,
+        string? outputFile,
+        bool append)
     {
         if (outputFile == null)
         {
@@ -134,7 +161,14 @@ class Program
             return;
         }
 
-        File.WriteAllText(outputFile, text);
+        if (append)
+        {
+            File.AppendAllText(outputFile, text);
+        }
+        else
+        {
+            File.WriteAllText(outputFile, text);
+        }
     }
 
     static void WriteError(string text, string? errorFile)
@@ -254,30 +288,47 @@ class Program
             {
                 string prefix = current.ToString();
 
-                if (prefix == "1")
+                if (i + 1 < input.Length && input[i + 1] == '>')
                 {
-                    args.Add("1>");
-                    current.Clear();
-                    argumentStarted = false;
-                }
-                else if (prefix == "2")
-                {
-                    args.Add("2>");
-                    current.Clear();
-                    argumentStarted = false;
+                    i++;
+
+                    if (prefix == "1")
+                    {
+                        args.Add("1>>");
+                    }
+                    else
+                    {
+                        if (argumentStarted)
+                        {
+                            args.Add(prefix);
+                        }
+
+                        args.Add(">>");
+                    }
                 }
                 else
                 {
-                    if (argumentStarted)
+                    if (prefix == "1")
                     {
-                        args.Add(prefix);
-                        current.Clear();
-                        argumentStarted = false;
+                        args.Add("1>");
                     }
+                    else if (prefix == "2")
+                    {
+                        args.Add("2>");
+                    }
+                    else
+                    {
+                        if (argumentStarted)
+                        {
+                            args.Add(prefix);
+                        }
 
-                    args.Add(">");
+                        args.Add(">");
+                    }
                 }
 
+                current.Clear();
+                argumentStarted = false;
                 continue;
             }
 
@@ -358,7 +409,8 @@ class Program
 
     static void HandleType(
         string[] args,
-        string? outputFile)
+        string? outputFile,
+        bool appendOutput)
     {
         if (args.Length == 0)
             return;
@@ -369,7 +421,8 @@ class Program
         {
             WriteOutput(
                 $"{command} is a shell builtin{Environment.NewLine}",
-                outputFile
+                outputFile,
+                appendOutput
             );
             return;
         }
@@ -380,14 +433,16 @@ class Program
         {
             WriteOutput(
                 $"{command} is {executablePath}{Environment.NewLine}",
-                outputFile
+                outputFile,
+                appendOutput
             );
             return;
         }
 
         WriteOutput(
             $"{command}: not found{Environment.NewLine}",
-            outputFile
+            outputFile,
+            appendOutput
         );
     }
 
@@ -436,7 +491,8 @@ class Program
         string command,
         string[] args,
         string? outputFile,
-        string? errorFile)
+        string? errorFile,
+        bool appendOutput)
     {
         string? executablePath = FindExecutable(command);
 
@@ -486,7 +542,14 @@ class Program
 
         if (outputFile != null)
         {
-            File.WriteAllText(outputFile, stdout ?? "");
+            if (appendOutput)
+            {
+                File.AppendAllText(outputFile, stdout ?? "");
+            }
+            else
+            {
+                File.WriteAllText(outputFile, stdout ?? "");
+            }
         }
 
         if (errorFile != null)
