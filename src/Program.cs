@@ -195,6 +195,39 @@ class Program
                             lastTabInput = "";
                             continue;
                         }
+
+                        if (lastTabInput == current)
+                            consecutiveTabs++;
+                        else
+                            consecutiveTabs = 1;
+
+                        lastTabInput = current;
+
+                        if (consecutiveTabs == 1)
+                        {
+                            Console.Write('\x07');
+                            continue;
+                        }
+
+                        Console.WriteLine();
+
+                        Console.WriteLine(
+                            string.Join(
+                                "  ",
+                                candidates
+                                    .OrderBy(
+                                        x => x,
+                                        StringComparer.Ordinal
+                                    )
+                            )
+                        );
+
+                        Console.Write("$ ");
+                        Console.Write(input.ToString());
+
+                        consecutiveTabs = 0;
+                        lastTabInput = "";
+                        continue;
                     }
 
                     string partialPath =
@@ -356,8 +389,12 @@ class Program
                 }
 
                 Console.WriteLine();
+
                 Console.WriteLine(
-                    string.Join("  ", commandMatches)
+                    string.Join(
+                        "  ",
+                        commandMatches
+                    )
                 );
 
                 Console.Write("$ ");
@@ -513,6 +550,11 @@ class Program
                 .Split(
                     new[] { '\r', '\n' },
                     StringSplitOptions.RemoveEmptyEntries
+                )
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(
+                    x => x,
+                    StringComparer.Ordinal
                 )
                 .ToList();
         }
