@@ -146,12 +146,12 @@ class Program
             {
                 string current = input.ToString();
 
-                int lastSpace = current.LastIndexOf(' ');
+                int tokenStart = FindCurrentTokenStart(current);
 
-                if (lastSpace >= 0)
+                if (tokenStart > 0)
                 {
                     string partialPath =
-                        current.Substring(lastSpace + 1);
+                        current.Substring(tokenStart);
 
                     List<PathCompletion> matches =
                         FindPathCompletions(partialPath);
@@ -303,7 +303,6 @@ class Program
                 }
 
                 Console.WriteLine();
-
                 Console.WriteLine(
                     string.Join("  ", commandMatches)
                 );
@@ -325,6 +324,17 @@ class Program
                 Console.Write(key.KeyChar);
             }
         }
+    }
+
+    static int FindCurrentTokenStart(string input)
+    {
+        for (int i = input.Length - 1; i >= 0; i--)
+        {
+            if (char.IsWhiteSpace(input[i]))
+                return i + 1;
+        }
+
+        return 0;
     }
 
     class PathCompletion
@@ -757,10 +767,7 @@ class Program
 
                 if (i + 1 < input.Length)
                 {
-                    current.Append(
-                        input[i + 1]
-                    );
-
+                    current.Append(input[i + 1]);
                     i++;
                 }
 
@@ -1060,15 +1067,13 @@ class Program
         if (outputFile != null)
         {
             stdout =
-                process.StandardOutput
-                    .ReadToEnd();
+                process.StandardOutput.ReadToEnd();
         }
 
         if (errorFile != null)
         {
             stderr =
-                process.StandardError
-                    .ReadToEnd();
+                process.StandardError.ReadToEnd();
         }
 
         process.WaitForExit();
