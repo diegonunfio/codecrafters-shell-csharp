@@ -1,8 +1,10 @@
 class Program
 {
-    static void Main()
+  static void Main()
     {
-        // TODO: Uncomment the code below to pass the first stage
         Console.Write("$ ");
+        // Wait for user input
+        var command = Console.ReadLine();
+        Console.WriteLine($"{command}: command not found");
     }
 }
