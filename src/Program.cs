@@ -177,6 +177,20 @@ class Program
                                 current
                             );
 
+                        candidates = candidates
+                            .Where(x =>
+                                x.StartsWith(
+                                    currentWord,
+                                    StringComparison.Ordinal
+                                )
+                            )
+                            .Distinct(StringComparer.Ordinal)
+                            .OrderBy(
+                                x => x,
+                                StringComparer.Ordinal
+                            )
+                            .ToList();
+
                         if (candidates.Count == 1)
                         {
                             string candidate = candidates[0];
@@ -195,6 +209,25 @@ class Program
                         if (candidates.Count == 0)
                         {
                             Console.Write('\x07');
+                            consecutiveTabs = 0;
+                            lastTabInput = "";
+                            continue;
+                        }
+
+                        string completerCommonPrefix =
+                            GetLongestCommonPrefix(candidates);
+
+                        if (completerCommonPrefix.Length >
+                            currentWord.Length)
+                        {
+                            string remaining =
+                                completerCommonPrefix.Substring(
+                                    currentWord.Length
+                                );
+
+                            input.Append(remaining);
+                            Console.Write(remaining);
+
                             consecutiveTabs = 0;
                             lastTabInput = "";
                             continue;
@@ -219,10 +252,6 @@ class Program
                             string.Join(
                                 "  ",
                                 candidates
-                                    .OrderBy(
-                                        x => x,
-                                        StringComparer.Ordinal
-                                    )
                             )
                         );
 
