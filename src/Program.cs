@@ -1,8 +1,8 @@
 class Program
 {
-  static void Main()
+    static void Main()
     {
-         while (true)
+        while (true)
         {
             Console.Write("$ ");
             // Wait for user input
@@ -11,8 +11,7 @@ class Program
             {
                 break;
             }
-            Console.WriteLine($"{command}: command not found");
-             else if (command.StartsWith("echo "))
+            else if (command.StartsWith("echo "))
             {
                 Console.WriteLine(command[5..]);
             }
@@ -22,4 +21,4 @@ class Program
             }
         }
     }
-        }
+}
