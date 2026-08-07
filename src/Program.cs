@@ -173,6 +173,14 @@ class Program
                                 current
                             );
 
+                        if (candidates.Count == 0)
+                        {
+                            Console.Write('\x07');
+                            consecutiveTabs = 0;
+                            lastTabInput = "";
+                            continue;
+                        }
+
                         if (candidates.Count == 1)
                         {
                             string candidate = candidates[0];
@@ -188,9 +196,20 @@ class Program
                             continue;
                         }
 
-                        if (candidates.Count == 0)
+                        string programmableCommonPrefix =
+                            GetLongestCommonPrefix(candidates);
+
+                        if (programmableCommonPrefix.Length >
+                            currentWord.Length)
                         {
-                            Console.Write('\x07');
+                            string remaining =
+                                programmableCommonPrefix.Substring(
+                                    currentWord.Length
+                                );
+
+                            input.Append(remaining);
+                            Console.Write(remaining);
+
                             consecutiveTabs = 0;
                             lastTabInput = "";
                             continue;
@@ -525,9 +544,9 @@ class Program
             processInfo.ArgumentList.Add(currentWord);
             processInfo.ArgumentList.Add(previousWord);
 
+            processInfo.Environment.Clear();
             processInfo.Environment["COMP_LINE"] =
                 fullCommandLine;
-
             processInfo.Environment["COMP_POINT"] =
                 Encoding.UTF8
                     .GetByteCount(fullCommandLine)
@@ -957,6 +976,8 @@ class Program
                 outputFile,
                 appendOutput
             );
+
+            return;
         }
     }
 
