@@ -15,7 +15,8 @@ class Program
         "echo",
         "type",
         "pwd",
-        "cd"
+        "cd",
+        "complete"
     };
 
     static void Main()
@@ -625,6 +626,13 @@ class Program
                 );
                 break;
 
+            case "complete":
+                PrepareErrorFile(
+                    errorFile,
+                    appendError
+                );
+                break;
+
             default:
                 RunExternalCommand(
                     command,
@@ -845,9 +853,7 @@ class Program
             {
                 if (argumentStarted)
                 {
-                    args.Add(
-                        current.ToString()
-                    );
+                    args.Add(current.ToString());
 
                     current.Clear();
                     argumentStarted = false;
@@ -1065,53 +1071,27 @@ class Program
         string? stderr = null;
 
         if (outputFile != null)
-        {
-            stdout =
-                process.StandardOutput.ReadToEnd();
-        }
+            stdout = process.StandardOutput.ReadToEnd();
 
         if (errorFile != null)
-        {
-            stderr =
-                process.StandardError.ReadToEnd();
-        }
+            stderr = process.StandardError.ReadToEnd();
 
         process.WaitForExit();
 
         if (outputFile != null)
         {
             if (appendOutput)
-            {
-                File.AppendAllText(
-                    outputFile,
-                    stdout ?? ""
-                );
-            }
+                File.AppendAllText(outputFile, stdout ?? "");
             else
-            {
-                File.WriteAllText(
-                    outputFile,
-                    stdout ?? ""
-                );
-            }
+                File.WriteAllText(outputFile, stdout ?? "");
         }
 
         if (errorFile != null)
         {
             if (appendError)
-            {
-                File.AppendAllText(
-                    errorFile,
-                    stderr ?? ""
-                );
-            }
+                File.AppendAllText(errorFile, stderr ?? "");
             else
-            {
-                File.WriteAllText(
-                    errorFile,
-                    stderr ?? ""
-                );
-            }
+                File.WriteAllText(errorFile, stderr ?? "");
         }
     }
 }
