@@ -235,13 +235,15 @@ class Program
                             continue;
                         }
 
-                        string commonPrefix =
+                        string programmableCommonPrefix =
                             GetLongestCommonPrefix(candidates);
 
-                        if (commonPrefix.Length > currentWord.Length)
+                        if (programmableCommonPrefix.Length > currentWord.Length)
                         {
                             string remaining =
-                                commonPrefix.Substring(currentWord.Length);
+                                programmableCommonPrefix.Substring(
+                                    currentWord.Length
+                                );
 
                             input.Append(remaining);
                             Console.Write(remaining);
@@ -334,13 +336,15 @@ class Program
                     List<string> values =
                         matches.Select(x => x.Value).ToList();
 
-                    string commonPrefix =
+                    string pathCommonPrefix =
                         GetLongestCommonPrefix(values);
 
-                    if (commonPrefix.Length > partialPath.Length)
+                    if (pathCommonPrefix.Length > partialPath.Length)
                     {
                         string remaining =
-                            commonPrefix.Substring(partialPath.Length);
+                            pathCommonPrefix.Substring(
+                                partialPath.Length
+                            );
 
                         input.Append(remaining);
                         Console.Write(remaining);
