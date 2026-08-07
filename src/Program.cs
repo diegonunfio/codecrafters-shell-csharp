@@ -35,6 +35,8 @@ class Program
                 continue;
 
             string? outputFile = null;
+            string? errorFile = null;
+
             List<string> commandParts = new();
 
             for (int i = 0; i < parts.Count; i++)
@@ -50,6 +52,17 @@ class Program
                     continue;
                 }
 
+                if (parts[i] == "2>")
+                {
+                    if (i + 1 < parts.Count)
+                    {
+                        errorFile = parts[i + 1];
+                        i++;
+                    }
+
+                    continue;
+                }
+
                 commandParts.Add(parts[i]);
             }
 
@@ -59,14 +72,15 @@ class Program
             string command = commandParts[0];
             string[] args = commandParts.Skip(1).ToArray();
 
-            ExecuteCommand(command, args, outputFile);
+            ExecuteCommand(command, args, outputFile, errorFile);
         }
     }
 
     static void ExecuteCommand(
         string command,
         string[] args,
-        string? outputFile)
+        string? outputFile,
+        string? errorFile)
     {
         switch (command)
         {
@@ -79,10 +93,13 @@ class Program
                     string.Join(" ", args) + Environment.NewLine,
                     outputFile
                 );
+
+                CreateEmptyFileIfNeeded(errorFile);
                 break;
 
             case "type":
                 HandleType(args, outputFile);
+                CreateEmptyFileIfNeeded(errorFile);
                 break;
 
             case "pwd":
@@ -90,14 +107,21 @@ class Program
                     Directory.GetCurrentDirectory() + Environment.NewLine,
                     outputFile
                 );
+
+                CreateEmptyFileIfNeeded(errorFile);
                 break;
 
             case "cd":
-                HandleCd(args);
+                HandleCd(args, errorFile);
                 break;
 
             default:
-                RunExternalCommand(command, args, outputFile);
+                RunExternalCommand(
+                    command,
+                    args,
+                    outputFile,
+                    errorFile
+                );
                 break;
         }
     }
@@ -111,6 +135,25 @@ class Program
         }
 
         File.WriteAllText(outputFile, text);
+    }
+
+    static void WriteError(string text, string? errorFile)
+    {
+        if (errorFile == null)
+        {
+            Console.Error.Write(text);
+            return;
+        }
+
+        File.WriteAllText(errorFile, text);
+    }
+
+    static void CreateEmptyFileIfNeeded(string? file)
+    {
+        if (file != null)
+        {
+            File.WriteAllText(file, "");
+        }
     }
 
     static List<string> ParseInput(string input)
@@ -209,27 +252,29 @@ class Program
 
             if (c == '>')
             {
-                if (current.Length > 0 || argumentStarted)
+                string prefix = current.ToString();
+
+                if (prefix == "1")
                 {
-                    string value = current.ToString();
-
-                    if (value == "1")
-                    {
-                        args.Add("1>");
-                    }
-                    else
-                    {
-                        if (value.Length > 0)
-                            args.Add(value);
-
-                        args.Add(">");
-                    }
-
+                    args.Add("1>");
+                    current.Clear();
+                    argumentStarted = false;
+                }
+                else if (prefix == "2")
+                {
+                    args.Add("2>");
                     current.Clear();
                     argumentStarted = false;
                 }
                 else
                 {
+                    if (argumentStarted)
+                    {
+                        args.Add(prefix);
+                        current.Clear();
+                        argumentStarted = false;
+                    }
+
                     args.Add(">");
                 }
 
@@ -260,10 +305,13 @@ class Program
         return args;
     }
 
-    static void HandleCd(string[] args)
+    static void HandleCd(string[] args, string? errorFile)
     {
         if (args.Length == 0)
+        {
+            CreateEmptyFileIfNeeded(errorFile);
             return;
+        }
 
         string directory = args[0];
 
@@ -273,13 +321,15 @@ class Program
 
             if (string.IsNullOrEmpty(home) || !Directory.Exists(home))
             {
-                Console.WriteLine(
-                    $"cd: {directory}: No such file or directory"
+                WriteError(
+                    $"cd: {directory}: No such file or directory{Environment.NewLine}",
+                    errorFile
                 );
                 return;
             }
 
             Directory.SetCurrentDirectory(home);
+            CreateEmptyFileIfNeeded(errorFile);
             return;
         }
 
@@ -292,8 +342,9 @@ class Program
 
         if (!Directory.Exists(targetPath))
         {
-            Console.WriteLine(
-                $"cd: {directory}: No such file or directory"
+            WriteError(
+                $"cd: {directory}: No such file or directory{Environment.NewLine}",
+                errorFile
             );
             return;
         }
@@ -301,6 +352,8 @@ class Program
         Directory.SetCurrentDirectory(
             Path.GetFullPath(targetPath)
         );
+
+        CreateEmptyFileIfNeeded(errorFile);
     }
 
     static void HandleType(
@@ -346,9 +399,7 @@ class Program
         if (string.IsNullOrEmpty(path))
             return null;
 
-        foreach (
-            string directory in path.Split(Path.PathSeparator)
-        )
+        foreach (string directory in path.Split(Path.PathSeparator))
         {
             if (string.IsNullOrEmpty(directory))
                 continue;
@@ -365,15 +416,9 @@ class Program
                     File.GetUnixFileMode(fullPath);
 
                 bool executable =
-                    mode.HasFlag(
-                        UnixFileMode.UserExecute
-                    ) ||
-                    mode.HasFlag(
-                        UnixFileMode.GroupExecute
-                    ) ||
-                    mode.HasFlag(
-                        UnixFileMode.OtherExecute
-                    );
+                    mode.HasFlag(UnixFileMode.UserExecute) ||
+                    mode.HasFlag(UnixFileMode.GroupExecute) ||
+                    mode.HasFlag(UnixFileMode.OtherExecute);
 
                 if (executable)
                     return fullPath;
@@ -390,15 +435,16 @@ class Program
     static void RunExternalCommand(
         string command,
         string[] args,
-        string? outputFile)
+        string? outputFile,
+        string? errorFile)
     {
-        string? executablePath =
-            FindExecutable(command);
+        string? executablePath = FindExecutable(command);
 
         if (executablePath == null)
         {
-            Console.WriteLine(
-                $"{command}: command not found"
+            WriteError(
+                $"{command}: command not found{Environment.NewLine}",
+                errorFile
             );
             return;
         }
@@ -407,7 +453,8 @@ class Program
         {
             FileName = "/usr/bin/env",
             UseShellExecute = false,
-            RedirectStandardOutput = outputFile != null
+            RedirectStandardOutput = outputFile != null,
+            RedirectStandardError = errorFile != null
         };
 
         processInfo.ArgumentList.Add(command);
@@ -417,20 +464,34 @@ class Program
             processInfo.ArgumentList.Add(arg);
         }
 
-        using Process? process =
-            Process.Start(processInfo);
+        using Process? process = Process.Start(processInfo);
 
         if (process == null)
             return;
 
+        string? stdout = null;
+        string? stderr = null;
+
         if (outputFile != null)
         {
-            string output =
-                process.StandardOutput.ReadToEnd();
+            stdout = process.StandardOutput.ReadToEnd();
+        }
 
-            File.WriteAllText(outputFile, output);
+        if (errorFile != null)
+        {
+            stderr = process.StandardError.ReadToEnd();
         }
 
         process.WaitForExit();
+
+        if (outputFile != null)
+        {
+            File.WriteAllText(outputFile, stdout ?? "");
+        }
+
+        if (errorFile != null)
+        {
+            File.WriteAllText(errorFile, stderr ?? "");
+        }
     }
 }
