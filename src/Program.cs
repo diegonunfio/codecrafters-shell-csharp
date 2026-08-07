@@ -166,6 +166,14 @@ class Program
                         Console.Write(remaining);
                         Console.Write(" ");
                     }
+                    else
+                    {
+                        Console.Write('\x07');
+                    }
+                }
+                else
+                {
+                    Console.Write('\x07');
                 }
 
                 continue;
