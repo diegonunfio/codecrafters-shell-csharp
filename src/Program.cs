@@ -8,7 +8,6 @@ using System.Text;
 class Program
 {
     static bool runProgram = true;
-    static int nextJobNumber = 1;
 
     static readonly HashSet<string> builtins = new()
     {
@@ -1167,6 +1166,16 @@ class Program
         }
     }
 
+    static int GetNextJobNumber()
+    {
+        if (backgroundJobs.Count == 0)
+            return 1;
+
+        return backgroundJobs.Max(
+            job => job.JobNumber
+        ) + 1;
+    }
+
     static char GetJobMarker(
         int jobNumber,
         int newestJobNumber,
@@ -1695,7 +1704,7 @@ class Program
 
         if (runInBackground)
         {
-            int jobNumber = nextJobNumber++;
+            int jobNumber = GetNextJobNumber();
 
             backgroundJobs.Add(
                 new BackgroundJob
