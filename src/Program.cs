@@ -1434,16 +1434,16 @@ class Program
             return;
         }
 
-        var processInfo =
-            new ProcessStartInfo
-            {
-                FileName = "/usr/bin/env",
-                UseShellExecute = false,
-                RedirectStandardOutput =
-                    outputFile != null,
-                RedirectStandardError =
-                    errorFile != null
-            };
+        ProcessStartInfo processInfo = new()
+        {
+            FileName = "/usr/bin/env",
+            UseShellExecute = false,
+
+            // If there is no shell redirection, leave these false.
+            // The child then inherits the shell's terminal stdout/stderr.
+            RedirectStandardOutput = outputFile != null,
+            RedirectStandardError = errorFile != null
+        };
 
         processInfo.ArgumentList.Add(command);
 
@@ -1463,16 +1463,21 @@ class Program
                 $"[{jobNumber}] {process.Id}"
             );
 
-            if (outputFile != null || errorFile != null)
+            if (outputFile == null &&
+                errorFile == null)
             {
-                HandleBackgroundRedirection(
-                    process,
-                    outputFile,
-                    errorFile,
-                    appendOutput,
-                    appendError
-                );
+                // Do not wait and do not redirect.
+                // stdout/stderr remain inherited from this shell.
+                return;
             }
+
+            HandleBackgroundRedirection(
+                process,
+                outputFile,
+                errorFile,
+                appendOutput,
+                appendError
+            );
 
             return;
         }
@@ -1544,10 +1549,16 @@ class Program
         bool appendError)
     {
         if (outputFile != null)
-            PrepareOutputFile(outputFile, appendOutput);
+            PrepareOutputFile(
+                outputFile,
+                appendOutput
+            );
 
         if (errorFile != null)
-            PrepareErrorFile(errorFile, appendError);
+            PrepareErrorFile(
+                errorFile,
+                appendError
+            );
 
         if (outputFile != null)
         {
