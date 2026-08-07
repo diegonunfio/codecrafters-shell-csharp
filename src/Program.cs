@@ -23,6 +23,17 @@ class Program
 
     static readonly Dictionary<string, string> completionSpecs = new();
 
+    static readonly List<BackgroundJob> backgroundJobs = new();
+
+    class BackgroundJob
+    {
+        public int JobNumber { get; set; }
+        public int ProcessId { get; set; }
+        public string Command { get; set; } = "";
+        public string Status { get; set; } = "Running";
+        public Process? Process { get; set; }
+    }
+
     static void Main()
     {
         while (runProgram)
@@ -116,6 +127,12 @@ class Program
             string command = commandParts[0];
             string[] args = commandParts.Skip(1).ToArray();
 
+            string commandText =
+                string.Join(" ", commandParts);
+
+            if (runInBackground)
+                commandText += " &";
+
             ExecuteCommand(
                 command,
                 args,
@@ -123,7 +140,8 @@ class Program
                 errorFile,
                 appendOutput,
                 appendError,
-                runInBackground
+                runInBackground,
+                commandText
             );
         }
     }
@@ -863,7 +881,8 @@ class Program
         string? errorFile,
         bool appendOutput,
         bool appendError,
-        bool runInBackground)
+        bool runInBackground,
+        string commandText)
     {
         switch (command)
         {
@@ -934,7 +953,7 @@ class Program
                 break;
 
             case "jobs":
-                PrepareOutputFile(
+                HandleJobs(
                     outputFile,
                     appendOutput
                 );
@@ -953,10 +972,55 @@ class Program
                     errorFile,
                     appendOutput,
                     appendError,
-                    runInBackground
+                    runInBackground,
+                    commandText
                 );
                 break;
         }
+    }
+
+    static void HandleJobs(
+        string? outputFile,
+        bool appendOutput)
+    {
+        if (backgroundJobs.Count == 0)
+        {
+            PrepareOutputFile(
+                outputFile,
+                appendOutput
+            );
+
+            return;
+        }
+
+        StringBuilder output = new();
+
+        for (int i = 0; i < backgroundJobs.Count; i++)
+        {
+            BackgroundJob job = backgroundJobs[i];
+
+            string marker =
+                i == backgroundJobs.Count - 1
+                    ? "+"
+                    : " ";
+
+            output.Append(
+                $"[{job.JobNumber}]{marker}  "
+            );
+
+            output.Append(
+                job.Status.PadRight(24)
+            );
+
+            output.Append(job.Command);
+            output.Append(Environment.NewLine);
+        }
+
+        WriteOutput(
+            output.ToString(),
+            outputFile,
+            appendOutput
+        );
     }
 
     static void HandleComplete(
@@ -1418,7 +1482,8 @@ class Program
         string? errorFile,
         bool appendOutput,
         bool appendError,
-        bool runInBackground)
+        bool runInBackground,
+        string commandText)
     {
         string? executablePath =
             FindExecutable(command);
@@ -1438,9 +1503,6 @@ class Program
         {
             FileName = "/usr/bin/env",
             UseShellExecute = false,
-
-            // If there is no shell redirection, leave these false.
-            // The child then inherits the shell's terminal stdout/stderr.
             RedirectStandardOutput = outputFile != null,
             RedirectStandardError = errorFile != null
         };
@@ -1459,6 +1521,17 @@ class Program
         {
             int jobNumber = nextJobNumber++;
 
+            backgroundJobs.Add(
+                new BackgroundJob
+                {
+                    JobNumber = jobNumber,
+                    ProcessId = process.Id,
+                    Command = commandText,
+                    Status = "Running",
+                    Process = process
+                }
+            );
+
             Console.WriteLine(
                 $"[{jobNumber}] {process.Id}"
             );
@@ -1466,8 +1539,6 @@ class Program
             if (outputFile == null &&
                 errorFile == null)
             {
-                // Do not wait and do not redirect.
-                // stdout/stderr remain inherited from this shell.
                 return;
             }
 
