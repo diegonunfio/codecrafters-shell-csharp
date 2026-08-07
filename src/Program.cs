@@ -12,7 +12,8 @@ class Program
     {
         "exit",
         "echo",
-        "type"
+        "type",
+        "pwd"
     };
 
     static void Main()
@@ -46,6 +47,10 @@ class Program
 
                 case "type":
                     HandleType(args);
+                    break;
+
+                case "pwd":
+                    Console.WriteLine(Directory.GetCurrentDirectory());
                     break;
 
                 default:
