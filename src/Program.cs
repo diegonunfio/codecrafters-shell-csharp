@@ -158,37 +158,29 @@ class Program
                         commandName,
                         out string? completerPath))
                     {
+                        string currentWord =
+                            current.Substring(tokenStart);
+
+                        string previousWord =
+                            GetPreviousWord(current, tokenStart);
+
                         List<string> candidates =
-                            RunCompleter(completerPath);
+                            RunCompleter(
+                                completerPath,
+                                commandName,
+                                currentWord,
+                                previousWord
+                            );
 
                         if (candidates.Count == 1)
                         {
-                            string currentToken =
-                                current.Substring(tokenStart);
-
                             string candidate = candidates[0];
 
-                            string textToAppend;
-
-                            if (candidate.StartsWith(
-                                currentToken,
-                                StringComparison.Ordinal))
-                            {
-                                textToAppend =
-                                    candidate.Substring(
-                                        currentToken.Length
-                                    );
-                            }
-                            else
-                            {
-                                textToAppend = candidate;
-                            }
-
-                            input.Append(textToAppend);
-                            input.Append(' ');
-
-                            Console.Write(textToAppend);
-                            Console.Write(" ");
+                            ReplaceCurrentToken(
+                                input,
+                                currentWord,
+                                candidate
+                            );
 
                             consecutiveTabs = 0;
                             lastTabInput = "";
@@ -386,17 +378,99 @@ class Program
         }
     }
 
-    static string GetCommandName(string input)
+    static void ReplaceCurrentToken(
+        StringBuilder input,
+        string currentWord,
+        string candidate)
     {
-        int firstSpace = input.IndexOf(' ');
+        if (candidate.StartsWith(
+            currentWord,
+            StringComparison.Ordinal))
+        {
+            string remaining =
+                candidate.Substring(currentWord.Length);
 
-        if (firstSpace == -1)
-            return input;
+            input.Append(remaining);
+            input.Append(' ');
 
-        return input.Substring(0, firstSpace);
+            Console.Write(remaining);
+            Console.Write(" ");
+
+            return;
+        }
+
+        for (int i = 0; i < currentWord.Length; i++)
+            Console.Write("\b \b");
+
+        if (currentWord.Length > 0)
+        {
+            input.Length -= currentWord.Length;
+        }
+
+        input.Append(candidate);
+        input.Append(' ');
+
+        Console.Write(candidate);
+        Console.Write(" ");
     }
 
-    static List<string> RunCompleter(string completerPath)
+    static string GetCommandName(string input)
+    {
+        int firstWhitespace = -1;
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            if (char.IsWhiteSpace(input[i]))
+            {
+                firstWhitespace = i;
+                break;
+            }
+        }
+
+        if (firstWhitespace == -1)
+            return input;
+
+        return input.Substring(0, firstWhitespace);
+    }
+
+    static string GetPreviousWord(
+        string input,
+        int currentTokenStart)
+    {
+        if (currentTokenStart <= 0)
+            return "";
+
+        string beforeCurrent =
+            input.Substring(0, currentTokenStart)
+                .TrimEnd();
+
+        if (beforeCurrent.Length == 0)
+            return "";
+
+        List<string> words =
+            SplitWords(beforeCurrent);
+
+        if (words.Count <= 1)
+            return "";
+
+        return words[^1];
+    }
+
+    static List<string> SplitWords(string input)
+    {
+        return input
+            .Split(
+                (char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries
+            )
+            .ToList();
+    }
+
+    static List<string> RunCompleter(
+        string completerPath,
+        string commandName,
+        string currentWord,
+        string previousWord)
     {
         List<string> candidates = new();
 
@@ -410,6 +484,10 @@ class Program
                 RedirectStandardError = true
             };
 
+            processInfo.ArgumentList.Add(commandName);
+            processInfo.ArgumentList.Add(currentWord);
+            processInfo.ArgumentList.Add(previousWord);
+
             using Process? process =
                 Process.Start(processInfo);
 
@@ -418,6 +496,8 @@ class Program
 
             string output =
                 process.StandardOutput.ReadToEnd();
+
+            process.StandardError.ReadToEnd();
 
             process.WaitForExit();
 
