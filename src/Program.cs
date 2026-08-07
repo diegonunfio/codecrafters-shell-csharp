@@ -162,7 +162,11 @@ class Program
                             current.Substring(tokenStart);
 
                         string previousWord =
-                            GetPreviousWord(current, tokenStart);
+                            GetPreviousWord(
+                                current,
+                                tokenStart,
+                                currentWord
+                            );
 
                         List<string> candidates =
                             RunCompleter(
@@ -471,8 +475,12 @@ class Program
 
     static string GetPreviousWord(
         string input,
-        int currentTokenStart)
+        int currentTokenStart,
+        string currentWord)
     {
+        if (string.IsNullOrEmpty(currentWord))
+            return "";
+
         if (currentTokenStart <= 0)
             return "";
 
@@ -486,7 +494,7 @@ class Program
         List<string> words =
             SplitWords(beforeCurrent);
 
-        if (words.Count <= 1)
+        if (words.Count == 0)
             return "";
 
         return words[^1];
