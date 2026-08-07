@@ -114,6 +114,7 @@ class Program
     static string ReadInput()
     {
         StringBuilder input = new();
+        int consecutiveTabs = 0;
 
         while (true)
         {
@@ -127,6 +128,8 @@ class Program
 
             if (key.Key == ConsoleKey.Backspace)
             {
+                consecutiveTabs = 0;
+
                 if (input.Length > 0)
                 {
                     input.Length--;
@@ -140,32 +143,55 @@ class Program
             {
                 string current = input.ToString();
 
-                if (!current.Any(char.IsWhiteSpace))
-                {
-                    string? match = FindCompletion(current);
-
-                    if (match != null)
-                    {
-                        string remaining = match.Substring(current.Length);
-
-                        input.Append(remaining);
-                        input.Append(' ');
-
-                        Console.Write(remaining);
-                        Console.Write(" ");
-                    }
-                    else
-                    {
-                        Console.Write('\x07');
-                    }
-                }
-                else
+                if (current.Any(char.IsWhiteSpace))
                 {
                     Console.Write('\x07');
+                    consecutiveTabs = 0;
+                    continue;
                 }
 
+                List<string> matches = FindCompletions(current);
+
+                if (matches.Count == 0)
+                {
+                    Console.Write('\x07');
+                    consecutiveTabs = 0;
+                    continue;
+                }
+
+                if (matches.Count == 1)
+                {
+                    string match = matches[0];
+                    string remaining = match.Substring(current.Length);
+
+                    input.Append(remaining);
+                    input.Append(' ');
+
+                    Console.Write(remaining);
+                    Console.Write(" ");
+
+                    consecutiveTabs = 0;
+                    continue;
+                }
+
+                consecutiveTabs++;
+
+                if (consecutiveTabs == 1)
+                {
+                    Console.Write('\x07');
+                    continue;
+                }
+
+                Console.WriteLine();
+                Console.WriteLine(string.Join("  ", matches));
+                Console.Write("$ ");
+                Console.Write(input.ToString());
+
+                consecutiveTabs = 0;
                 continue;
             }
+
+            consecutiveTabs = 0;
 
             if (!char.IsControl(key.KeyChar))
             {
@@ -175,47 +201,51 @@ class Program
         }
     }
 
-    static string? FindCompletion(string prefix)
+    static List<string> FindCompletions(string prefix)
     {
+        HashSet<string> matches = new(StringComparer.Ordinal);
+
         foreach (string builtin in builtins)
         {
             if (builtin.StartsWith(prefix, StringComparison.Ordinal))
-                return builtin;
+                matches.Add(builtin);
         }
 
         string? path = Environment.GetEnvironmentVariable("PATH");
 
-        if (string.IsNullOrEmpty(path))
-            return null;
-
-        foreach (string directory in path.Split(Path.PathSeparator))
+        if (!string.IsNullOrEmpty(path))
         {
-            if (string.IsNullOrEmpty(directory))
-                continue;
-
-            if (!Directory.Exists(directory))
-                continue;
-
-            try
+            foreach (string directory in path.Split(Path.PathSeparator))
             {
-                foreach (string file in Directory.EnumerateFiles(directory))
+                if (string.IsNullOrEmpty(directory))
+                    continue;
+
+                if (!Directory.Exists(directory))
+                    continue;
+
+                try
                 {
-                    string name = Path.GetFileName(file);
+                    foreach (string file in Directory.EnumerateFiles(directory))
+                    {
+                        string name = Path.GetFileName(file);
 
-                    if (!name.StartsWith(prefix, StringComparison.Ordinal))
-                        continue;
+                        if (!name.StartsWith(prefix, StringComparison.Ordinal))
+                            continue;
 
-                    if (IsExecutable(file))
-                        return name;
+                        if (IsExecutable(file))
+                            matches.Add(name);
+                    }
                 }
-            }
-            catch
-            {
-                continue;
+                catch
+                {
+                    continue;
+                }
             }
         }
 
-        return null;
+        return matches
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
     }
 
     static bool IsExecutable(string filePath)
