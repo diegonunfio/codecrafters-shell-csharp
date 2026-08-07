@@ -18,12 +18,6 @@ class Program
         "cd"
     };
 
-    static readonly string[] autocompleteBuiltins =
-    {
-        "echo",
-        "exit"
-    };
-
     static void Main()
     {
         while (runProgram)
@@ -148,13 +142,7 @@ class Program
 
                 if (!current.Any(char.IsWhiteSpace))
                 {
-                    string? match = autocompleteBuiltins
-                        .FirstOrDefault(x =>
-                            x.StartsWith(
-                                current,
-                                StringComparison.Ordinal
-                            )
-                        );
+                    string? match = FindCompletion(current);
 
                     if (match != null)
                     {
@@ -184,6 +172,69 @@ class Program
                 input.Append(key.KeyChar);
                 Console.Write(key.KeyChar);
             }
+        }
+    }
+
+    static string? FindCompletion(string prefix)
+    {
+        foreach (string builtin in builtins)
+        {
+            if (builtin.StartsWith(prefix, StringComparison.Ordinal))
+                return builtin;
+        }
+
+        string? path = Environment.GetEnvironmentVariable("PATH");
+
+        if (string.IsNullOrEmpty(path))
+            return null;
+
+        foreach (string directory in path.Split(Path.PathSeparator))
+        {
+            if (string.IsNullOrEmpty(directory))
+                continue;
+
+            if (!Directory.Exists(directory))
+                continue;
+
+            try
+            {
+                foreach (string file in Directory.EnumerateFiles(directory))
+                {
+                    string name = Path.GetFileName(file);
+
+                    if (!name.StartsWith(prefix, StringComparison.Ordinal))
+                        continue;
+
+                    if (IsExecutable(file))
+                        return name;
+                }
+            }
+            catch
+            {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    static bool IsExecutable(string filePath)
+    {
+        if (!File.Exists(filePath))
+            return false;
+
+        try
+        {
+            UnixFileMode mode = File.GetUnixFileMode(filePath);
+
+            return
+                mode.HasFlag(UnixFileMode.UserExecute) ||
+                mode.HasFlag(UnixFileMode.GroupExecute) ||
+                mode.HasFlag(UnixFileMode.OtherExecute);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -587,29 +638,10 @@ class Program
             if (string.IsNullOrEmpty(directory))
                 continue;
 
-            string fullPath =
-                Path.Combine(directory, command);
+            string fullPath = Path.Combine(directory, command);
 
-            if (!File.Exists(fullPath))
-                continue;
-
-            try
-            {
-                UnixFileMode mode =
-                    File.GetUnixFileMode(fullPath);
-
-                bool executable =
-                    mode.HasFlag(UnixFileMode.UserExecute) ||
-                    mode.HasFlag(UnixFileMode.GroupExecute) ||
-                    mode.HasFlag(UnixFileMode.OtherExecute);
-
-                if (executable)
-                    return fullPath;
-            }
-            catch
-            {
-                continue;
-            }
+            if (IsExecutable(fullPath))
+                return fullPath;
         }
 
         return null;
