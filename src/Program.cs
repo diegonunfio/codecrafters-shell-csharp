@@ -22,7 +22,6 @@ class Program
     };
 
     static readonly Dictionary<string, string> completionSpecs = new();
-
     static readonly List<BackgroundJob> backgroundJobs = new();
 
     class BackgroundJob
@@ -34,11 +33,18 @@ class Program
         public Process? Process { get; set; }
     }
 
+    class PathCompletion
+    {
+        public string Value { get; set; } = "";
+        public bool IsDirectory { get; set; }
+    }
+
     static void Main()
     {
         while (runProgram)
         {
             Console.Write("$ ");
+            Console.Out.Flush();
 
             string input = ReadInput();
 
@@ -52,7 +58,7 @@ class Program
 
             bool runInBackground = false;
 
-            if (parts.Count > 0 && parts[^1] == "&")
+            if (parts[^1] == "&")
             {
                 runInBackground = true;
                 parts.RemoveAt(parts.Count - 1);
@@ -127,8 +133,7 @@ class Program
             string command = commandParts[0];
             string[] args = commandParts.Skip(1).ToArray();
 
-            string commandText =
-                string.Join(" ", commandParts);
+            string commandText = string.Join(" ", commandParts);
 
             if (runInBackground)
                 commandText += " &";
@@ -160,6 +165,7 @@ class Program
             if (key.Key == ConsoleKey.Enter)
             {
                 Console.WriteLine();
+                Console.Out.Flush();
                 return input.ToString();
             }
 
@@ -172,6 +178,7 @@ class Program
                 {
                     input.Length--;
                     Console.Write("\b \b");
+                    Console.Out.Flush();
                 }
 
                 continue;
@@ -208,6 +215,8 @@ class Program
                         if (candidates.Count == 0)
                         {
                             Console.Write('\x07');
+                            Console.Out.Flush();
+
                             consecutiveTabs = 0;
                             lastTabInput = "";
                             continue;
@@ -215,12 +224,10 @@ class Program
 
                         if (candidates.Count == 1)
                         {
-                            string candidate = candidates[0];
-
                             ReplaceCurrentToken(
                                 input,
                                 currentWord,
-                                candidate
+                                candidates[0]
                             );
 
                             consecutiveTabs = 0;
@@ -228,19 +235,17 @@ class Program
                             continue;
                         }
 
-                        string programmableCommonPrefix =
+                        string commonPrefix =
                             GetLongestCommonPrefix(candidates);
 
-                        if (programmableCommonPrefix.Length >
-                            currentWord.Length)
+                        if (commonPrefix.Length > currentWord.Length)
                         {
                             string remaining =
-                                programmableCommonPrefix.Substring(
-                                    currentWord.Length
-                                );
+                                commonPrefix.Substring(currentWord.Length);
 
                             input.Append(remaining);
                             Console.Write(remaining);
+                            Console.Out.Flush();
 
                             consecutiveTabs = 0;
                             lastTabInput = "";
@@ -257,6 +262,7 @@ class Program
                         if (consecutiveTabs == 1)
                         {
                             Console.Write('\x07');
+                            Console.Out.Flush();
                             continue;
                         }
 
@@ -265,16 +271,16 @@ class Program
                         Console.WriteLine(
                             string.Join(
                                 "  ",
-                                candidates
-                                    .OrderBy(
-                                        x => x,
-                                        StringComparer.Ordinal
-                                    )
+                                candidates.OrderBy(
+                                    x => x,
+                                    StringComparer.Ordinal
+                                )
                             )
                         );
 
                         Console.Write("$ ");
                         Console.Write(input.ToString());
+                        Console.Out.Flush();
 
                         consecutiveTabs = 0;
                         lastTabInput = "";
@@ -290,6 +296,8 @@ class Program
                     if (matches.Count == 0)
                     {
                         Console.Write('\x07');
+                        Console.Out.Flush();
+
                         consecutiveTabs = 0;
                         lastTabInput = "";
                         continue;
@@ -300,9 +308,7 @@ class Program
                         PathCompletion match = matches[0];
 
                         string remaining =
-                            match.Value.Substring(
-                                partialPath.Length
-                            );
+                            match.Value.Substring(partialPath.Length);
 
                         input.Append(remaining);
                         Console.Write(remaining);
@@ -318,14 +324,15 @@ class Program
                             Console.Write(" ");
                         }
 
+                        Console.Out.Flush();
+
                         consecutiveTabs = 0;
                         lastTabInput = "";
                         continue;
                     }
 
-                    List<string> values = matches
-                        .Select(x => x.Value)
-                        .ToList();
+                    List<string> values =
+                        matches.Select(x => x.Value).ToList();
 
                     string commonPrefix =
                         GetLongestCommonPrefix(values);
@@ -333,12 +340,11 @@ class Program
                     if (commonPrefix.Length > partialPath.Length)
                     {
                         string remaining =
-                            commonPrefix.Substring(
-                                partialPath.Length
-                            );
+                            commonPrefix.Substring(partialPath.Length);
 
                         input.Append(remaining);
                         Console.Write(remaining);
+                        Console.Out.Flush();
 
                         consecutiveTabs = 0;
                         lastTabInput = "";
@@ -355,6 +361,7 @@ class Program
                     if (consecutiveTabs == 1)
                     {
                         Console.Write('\x07');
+                        Console.Out.Flush();
                         continue;
                     }
 
@@ -363,8 +370,8 @@ class Program
                     Console.WriteLine(
                         string.Join(
                             "  ",
-                            matches.Select(m =>
-                                m.IsDirectory
+                            matches.Select(
+                                m => m.IsDirectory
                                     ? m.Value + "/"
                                     : m.Value
                             )
@@ -373,6 +380,7 @@ class Program
 
                     Console.Write("$ ");
                     Console.Write(input.ToString());
+                    Console.Out.Flush();
 
                     consecutiveTabs = 0;
                     lastTabInput = "";
@@ -385,6 +393,8 @@ class Program
                 if (commandMatches.Count == 0)
                 {
                     Console.Write('\x07');
+                    Console.Out.Flush();
+
                     consecutiveTabs = 0;
                     lastTabInput = "";
                     continue;
@@ -393,7 +403,6 @@ class Program
                 if (commandMatches.Count == 1)
                 {
                     string match = commandMatches[0];
-
                     string remaining =
                         match.Substring(current.Length);
 
@@ -402,6 +411,7 @@ class Program
 
                     Console.Write(remaining);
                     Console.Write(" ");
+                    Console.Out.Flush();
 
                     consecutiveTabs = 0;
                     lastTabInput = "";
@@ -414,12 +424,11 @@ class Program
                 if (commandCommonPrefix.Length > current.Length)
                 {
                     string remaining =
-                        commandCommonPrefix.Substring(
-                            current.Length
-                        );
+                        commandCommonPrefix.Substring(current.Length);
 
                     input.Append(remaining);
                     Console.Write(remaining);
+                    Console.Out.Flush();
 
                     consecutiveTabs = 0;
                     lastTabInput = "";
@@ -436,20 +445,19 @@ class Program
                 if (consecutiveTabs == 1)
                 {
                     Console.Write('\x07');
+                    Console.Out.Flush();
                     continue;
                 }
 
                 Console.WriteLine();
 
                 Console.WriteLine(
-                    string.Join(
-                        "  ",
-                        commandMatches
-                    )
+                    string.Join("  ", commandMatches)
                 );
 
                 Console.Write("$ ");
                 Console.Write(input.ToString());
+                Console.Out.Flush();
 
                 consecutiveTabs = 0;
                 lastTabInput = "";
@@ -463,6 +471,7 @@ class Program
             {
                 input.Append(key.KeyChar);
                 Console.Write(key.KeyChar);
+                Console.Out.Flush();
             }
         }
     }
@@ -484,6 +493,7 @@ class Program
 
             Console.Write(remaining);
             Console.Write(" ");
+            Console.Out.Flush();
 
             return;
         }
@@ -499,6 +509,7 @@ class Program
 
         Console.Write(candidate);
         Console.Write(" ");
+        Console.Out.Flush();
     }
 
     static string GetCommandName(string input)
@@ -604,8 +615,8 @@ class Program
                     new[] { '\r', '\n' },
                     StringSplitOptions.RemoveEmptyEntries
                 )
-                .Where(x =>
-                    x.StartsWith(
+                .Where(
+                    x => x.StartsWith(
                         currentWord,
                         StringComparison.Ordinal
                     )
@@ -633,12 +644,6 @@ class Program
         }
 
         return 0;
-    }
-
-    class PathCompletion
-    {
-        public string Value { get; set; } = "";
-        public bool IsDirectory { get; set; }
     }
 
     static List<PathCompletion> FindPathCompletions(
@@ -837,8 +842,7 @@ class Program
                 j++;
             }
 
-            prefix =
-                prefix.Substring(0, j);
+            prefix = prefix.Substring(0, j);
 
             if (prefix.Length == 0)
                 break;
@@ -1083,6 +1087,7 @@ class Program
         if (outputFile == null)
         {
             Console.Write(text);
+            Console.Out.Flush();
             return;
         }
 
@@ -1100,6 +1105,7 @@ class Program
         if (errorFile == null)
         {
             Console.Error.Write(text);
+            Console.Error.Flush();
             return;
         }
 
@@ -1186,8 +1192,7 @@ class Program
                 {
                     if (i + 1 < input.Length)
                     {
-                        char next =
-                            input[i + 1];
+                        char next = input[i + 1];
 
                         if (
                             next == '"' ||
@@ -1222,10 +1227,7 @@ class Program
 
                 if (i + 1 < input.Length)
                 {
-                    current.Append(
-                        input[i + 1]
-                    );
-
+                    current.Append(input[i + 1]);
                     i++;
                 }
 
@@ -1303,10 +1305,7 @@ class Program
             {
                 if (argumentStarted)
                 {
-                    args.Add(
-                        current.ToString()
-                    );
-
+                    args.Add(current.ToString());
                     current.Clear();
                     argumentStarted = false;
                 }
@@ -1535,20 +1534,19 @@ class Program
             Console.WriteLine(
                 $"[{jobNumber}] {process.Id}"
             );
+            Console.Out.Flush();
 
-            if (outputFile == null &&
-                errorFile == null)
+            if (outputFile != null ||
+                errorFile != null)
             {
-                return;
+                HandleBackgroundRedirection(
+                    process,
+                    outputFile,
+                    errorFile,
+                    appendOutput,
+                    appendError
+                );
             }
-
-            HandleBackgroundRedirection(
-                process,
-                outputFile,
-                errorFile,
-                appendOutput,
-                appendError
-            );
 
             return;
         }
@@ -1620,19 +1618,12 @@ class Program
         bool appendError)
     {
         if (outputFile != null)
+        {
             PrepareOutputFile(
                 outputFile,
                 appendOutput
             );
 
-        if (errorFile != null)
-            PrepareErrorFile(
-                errorFile,
-                appendError
-            );
-
-        if (outputFile != null)
-        {
             process.OutputDataReceived += (_, e) =>
             {
                 if (e.Data == null)
@@ -1655,6 +1646,11 @@ class Program
 
         if (errorFile != null)
         {
+            PrepareErrorFile(
+                errorFile,
+                appendError
+            );
+
             process.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data == null)
