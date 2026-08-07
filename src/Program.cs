@@ -146,16 +146,6 @@ class Program
             {
                 string current = input.ToString();
 
-                bool sameInputAsPreviousTab =
-                    current == lastTabInput;
-
-                if (sameInputAsPreviousTab)
-                    consecutiveTabs++;
-                else
-                    consecutiveTabs = 1;
-
-                lastTabInput = current;
-
                 int lastSpace = current.LastIndexOf(' ');
 
                 if (lastSpace >= 0)
@@ -179,20 +169,15 @@ class Program
                         PathCompletion match = matches[0];
 
                         string remaining =
-                            match.Value.Substring(
-                                partialPath.Length
-                            );
+                            match.Value.Substring(partialPath.Length);
 
                         input.Append(remaining);
                         Console.Write(remaining);
 
                         if (match.IsDirectory)
                         {
-                            if (!match.Value.EndsWith("/"))
-                            {
-                                input.Append('/');
-                                Console.Write("/");
-                            }
+                            input.Append('/');
+                            Console.Write("/");
                         }
                         else
                         {
@@ -204,6 +189,33 @@ class Program
                         lastTabInput = "";
                         continue;
                     }
+
+                    List<string> values = matches
+                        .Select(x => x.Value)
+                        .ToList();
+
+                    string commonPrefix =
+                        GetLongestCommonPrefix(values);
+
+                    if (commonPrefix.Length > partialPath.Length)
+                    {
+                        string remaining =
+                            commonPrefix.Substring(partialPath.Length);
+
+                        input.Append(remaining);
+                        Console.Write(remaining);
+
+                        consecutiveTabs = 0;
+                        lastTabInput = "";
+                        continue;
+                    }
+
+                    if (lastTabInput == current)
+                        consecutiveTabs++;
+                    else
+                        consecutiveTabs = 1;
+
+                    lastTabInput = current;
 
                     if (consecutiveTabs == 1)
                     {
@@ -261,13 +273,13 @@ class Program
                     continue;
                 }
 
-                string commonPrefix =
+                string commandCommonPrefix =
                     GetLongestCommonPrefix(commandMatches);
 
-                if (commonPrefix.Length > current.Length)
+                if (commandCommonPrefix.Length > current.Length)
                 {
                     string remaining =
-                        commonPrefix.Substring(current.Length);
+                        commandCommonPrefix.Substring(current.Length);
 
                     input.Append(remaining);
                     Console.Write(remaining);
@@ -277,6 +289,13 @@ class Program
                     continue;
                 }
 
+                if (lastTabInput == current)
+                    consecutiveTabs++;
+                else
+                    consecutiveTabs = 1;
+
+                lastTabInput = current;
+
                 if (consecutiveTabs == 1)
                 {
                     Console.Write('\x07');
@@ -284,6 +303,7 @@ class Program
                 }
 
                 Console.WriteLine();
+
                 Console.WriteLine(
                     string.Join("  ", commandMatches)
                 );
@@ -326,15 +346,10 @@ class Program
         if (lastSlash >= 0)
         {
             directoryPart =
-                partialPath.Substring(
-                    0,
-                    lastSlash + 1
-                );
+                partialPath.Substring(0, lastSlash + 1);
 
             prefix =
-                partialPath.Substring(
-                    lastSlash + 1
-                );
+                partialPath.Substring(lastSlash + 1);
         }
         else
         {
@@ -368,9 +383,7 @@ class Program
         {
             foreach (
                 string entry in
-                Directory.EnumerateFileSystemEntries(
-                    searchDirectory
-                )
+                Directory.EnumerateFileSystemEntries(searchDirectory)
             )
             {
                 string trimmed =
@@ -509,8 +522,7 @@ class Program
                 j++;
             }
 
-            prefix =
-                prefix.Substring(0, j);
+            prefix = prefix.Substring(0, j);
 
             if (prefix.Length == 0)
                 break;
@@ -530,15 +542,9 @@ class Program
                 File.GetUnixFileMode(filePath);
 
             return
-                mode.HasFlag(
-                    UnixFileMode.UserExecute
-                ) ||
-                mode.HasFlag(
-                    UnixFileMode.GroupExecute
-                ) ||
-                mode.HasFlag(
-                    UnixFileMode.OtherExecute
-                );
+                mode.HasFlag(UnixFileMode.UserExecute) ||
+                mode.HasFlag(UnixFileMode.GroupExecute) ||
+                mode.HasFlag(UnixFileMode.OtherExecute);
         }
         catch
         {
@@ -891,9 +897,7 @@ class Program
                 return;
             }
 
-            Directory.SetCurrentDirectory(
-                home
-            );
+            Directory.SetCurrentDirectory(home);
 
             PrepareErrorFile(
                 errorFile,
