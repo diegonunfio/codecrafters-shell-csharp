@@ -114,7 +114,9 @@ class Program
     static string ReadInput()
     {
         StringBuilder input = new();
+
         int consecutiveTabs = 0;
+        string lastTabInput = "";
 
         while (true)
         {
@@ -129,6 +131,7 @@ class Program
             if (key.Key == ConsoleKey.Backspace)
             {
                 consecutiveTabs = 0;
+                lastTabInput = "";
 
                 if (input.Length > 0)
                 {
@@ -142,21 +145,43 @@ class Program
             if (key.Key == ConsoleKey.Tab)
             {
                 string current = input.ToString();
+
+                bool sameInputAsPreviousTab =
+                    current == lastTabInput;
+
+                if (sameInputAsPreviousTab)
+                    consecutiveTabs++;
+                else
+                    consecutiveTabs = 1;
+
+                lastTabInput = current;
+
                 int lastSpace = current.LastIndexOf(' ');
 
                 if (lastSpace >= 0)
                 {
-                    string partialPath = current.Substring(lastSpace + 1);
+                    string partialPath =
+                        current.Substring(lastSpace + 1);
 
                     List<PathCompletion> matches =
                         FindPathCompletions(partialPath);
+
+                    if (matches.Count == 0)
+                    {
+                        Console.Write('\x07');
+                        consecutiveTabs = 0;
+                        lastTabInput = "";
+                        continue;
+                    }
 
                     if (matches.Count == 1)
                     {
                         PathCompletion match = matches[0];
 
                         string remaining =
-                            match.Value.Substring(partialPath.Length);
+                            match.Value.Substring(
+                                partialPath.Length
+                            );
 
                         input.Append(remaining);
                         Console.Write(remaining);
@@ -176,11 +201,34 @@ class Program
                         }
 
                         consecutiveTabs = 0;
+                        lastTabInput = "";
                         continue;
                     }
 
-                    Console.Write('\x07');
+                    if (consecutiveTabs == 1)
+                    {
+                        Console.Write('\x07');
+                        continue;
+                    }
+
+                    Console.WriteLine();
+
+                    Console.WriteLine(
+                        string.Join(
+                            "  ",
+                            matches.Select(m =>
+                                m.IsDirectory
+                                    ? m.Value + "/"
+                                    : m.Value
+                            )
+                        )
+                    );
+
+                    Console.Write("$ ");
+                    Console.Write(input.ToString());
+
                     consecutiveTabs = 0;
+                    lastTabInput = "";
                     continue;
                 }
 
@@ -191,6 +239,7 @@ class Program
                 {
                     Console.Write('\x07');
                     consecutiveTabs = 0;
+                    lastTabInput = "";
                     continue;
                 }
 
@@ -208,6 +257,7 @@ class Program
                     Console.Write(" ");
 
                     consecutiveTabs = 0;
+                    lastTabInput = "";
                     continue;
                 }
 
@@ -223,10 +273,9 @@ class Program
                     Console.Write(remaining);
 
                     consecutiveTabs = 0;
+                    lastTabInput = "";
                     continue;
                 }
-
-                consecutiveTabs++;
 
                 if (consecutiveTabs == 1)
                 {
@@ -235,15 +284,20 @@ class Program
                 }
 
                 Console.WriteLine();
-                Console.WriteLine(string.Join("  ", commandMatches));
+                Console.WriteLine(
+                    string.Join("  ", commandMatches)
+                );
+
                 Console.Write("$ ");
                 Console.Write(input.ToString());
 
                 consecutiveTabs = 0;
+                lastTabInput = "";
                 continue;
             }
 
             consecutiveTabs = 0;
+            lastTabInput = "";
 
             if (!char.IsControl(key.KeyChar))
             {
@@ -259,7 +313,8 @@ class Program
         public bool IsDirectory { get; set; }
     }
 
-    static List<PathCompletion> FindPathCompletions(string partialPath)
+    static List<PathCompletion> FindPathCompletions(
+        string partialPath)
     {
         List<PathCompletion> matches = new();
 
@@ -271,10 +326,15 @@ class Program
         if (lastSlash >= 0)
         {
             directoryPart =
-                partialPath.Substring(0, lastSlash + 1);
+                partialPath.Substring(
+                    0,
+                    lastSlash + 1
+                );
 
             prefix =
-                partialPath.Substring(lastSlash + 1);
+                partialPath.Substring(
+                    lastSlash + 1
+                );
         }
         else
         {
@@ -306,15 +366,21 @@ class Program
 
         try
         {
-            foreach (string entry in
-                     Directory.EnumerateFileSystemEntries(searchDirectory))
+            foreach (
+                string entry in
+                Directory.EnumerateFileSystemEntries(
+                    searchDirectory
+                )
+            )
             {
-                string name = Path.GetFileName(
+                string trimmed =
                     entry.TrimEnd(
                         Path.DirectorySeparatorChar,
                         Path.AltDirectorySeparatorChar
-                    )
-                );
+                    );
+
+                string name =
+                    Path.GetFileName(trimmed);
 
                 if (!name.StartsWith(
                     prefix,
@@ -329,11 +395,13 @@ class Program
                 string completedPath =
                     directoryPart + name;
 
-                matches.Add(new PathCompletion
-                {
-                    Value = completedPath,
-                    IsDirectory = isDirectory
-                });
+                matches.Add(
+                    new PathCompletion
+                    {
+                        Value = completedPath,
+                        IsDirectory = isDirectory
+                    }
+                );
             }
         }
         catch
@@ -341,11 +409,15 @@ class Program
         }
 
         return matches
-            .OrderBy(x => x.Value, StringComparer.Ordinal)
+            .OrderBy(
+                x => x.Value,
+                StringComparer.Ordinal
+            )
             .ToList();
     }
 
-    static List<string> FindCommandCompletions(string prefix)
+    static List<string> FindCommandCompletions(
+        string prefix)
     {
         HashSet<string> matches =
             new(StringComparer.Ordinal);
@@ -365,7 +437,10 @@ class Program
 
         if (!string.IsNullOrEmpty(path))
         {
-            foreach (string directory in path.Split(Path.PathSeparator))
+            foreach (
+                string directory in
+                path.Split(Path.PathSeparator)
+            )
             {
                 if (string.IsNullOrEmpty(directory))
                     continue;
@@ -375,8 +450,10 @@ class Program
 
                 try
                 {
-                    foreach (string file in
-                             Directory.EnumerateFiles(directory))
+                    foreach (
+                        string file in
+                        Directory.EnumerateFiles(directory)
+                    )
                     {
                         string name =
                             Path.GetFileName(file);
@@ -399,11 +476,15 @@ class Program
         }
 
         return matches
-            .OrderBy(x => x, StringComparer.Ordinal)
+            .OrderBy(
+                x => x,
+                StringComparer.Ordinal
+            )
             .ToList();
     }
 
-    static string GetLongestCommonPrefix(List<string> values)
+    static string GetLongestCommonPrefix(
+        List<string> values)
     {
         if (values.Count == 0)
             return "";
@@ -413,7 +494,10 @@ class Program
         for (int i = 1; i < values.Count; i++)
         {
             int length =
-                Math.Min(prefix.Length, values[i].Length);
+                Math.Min(
+                    prefix.Length,
+                    values[i].Length
+                );
 
             int j = 0;
 
@@ -425,7 +509,8 @@ class Program
                 j++;
             }
 
-            prefix = prefix.Substring(0, j);
+            prefix =
+                prefix.Substring(0, j);
 
             if (prefix.Length == 0)
                 break;
@@ -445,9 +530,15 @@ class Program
                 File.GetUnixFileMode(filePath);
 
             return
-                mode.HasFlag(UnixFileMode.UserExecute) ||
-                mode.HasFlag(UnixFileMode.GroupExecute) ||
-                mode.HasFlag(UnixFileMode.OtherExecute);
+                mode.HasFlag(
+                    UnixFileMode.UserExecute
+                ) ||
+                mode.HasFlag(
+                    UnixFileMode.GroupExecute
+                ) ||
+                mode.HasFlag(
+                    UnixFileMode.OtherExecute
+                );
         }
         catch
         {
@@ -624,9 +715,13 @@ class Program
                 {
                     if (i + 1 < input.Length)
                     {
-                        char next = input[i + 1];
+                        char next =
+                            input[i + 1];
 
-                        if (next == '"' || next == '\\')
+                        if (
+                            next == '"' ||
+                            next == '\\'
+                        )
                         {
                             current.Append(next);
                             i++;
@@ -656,7 +751,10 @@ class Program
 
                 if (i + 1 < input.Length)
                 {
-                    current.Append(input[i + 1]);
+                    current.Append(
+                        input[i + 1]
+                    );
+
                     i++;
                 }
 
@@ -734,7 +832,10 @@ class Program
             {
                 if (argumentStarted)
                 {
-                    args.Add(current.ToString());
+                    args.Add(
+                        current.ToString()
+                    );
+
                     current.Clear();
                     argumentStarted = false;
                 }
@@ -772,7 +873,9 @@ class Program
         if (directory == "~")
         {
             string? home =
-                Environment.GetEnvironmentVariable("HOME");
+                Environment.GetEnvironmentVariable(
+                    "HOME"
+                );
 
             if (
                 string.IsNullOrEmpty(home) ||
@@ -788,7 +891,9 @@ class Program
                 return;
             }
 
-            Directory.SetCurrentDirectory(home);
+            Directory.SetCurrentDirectory(
+                home
+            );
 
             PrepareErrorFile(
                 errorFile,
@@ -869,22 +974,30 @@ class Program
         );
     }
 
-    static string? FindExecutable(string command)
+    static string? FindExecutable(
+        string command)
     {
         string? path =
-            Environment.GetEnvironmentVariable("PATH");
+            Environment.GetEnvironmentVariable(
+                "PATH"
+            );
 
         if (string.IsNullOrEmpty(path))
             return null;
 
-        foreach (string directory in
-                 path.Split(Path.PathSeparator))
+        foreach (
+            string directory in
+            path.Split(Path.PathSeparator)
+        )
         {
             if (string.IsNullOrEmpty(directory))
                 continue;
 
             string fullPath =
-                Path.Combine(directory, command);
+                Path.Combine(
+                    directory,
+                    command
+                );
 
             if (IsExecutable(fullPath))
                 return fullPath;
@@ -941,39 +1054,55 @@ class Program
         string? stderr = null;
 
         if (outputFile != null)
-            stdout = process.StandardOutput.ReadToEnd();
+        {
+            stdout =
+                process.StandardOutput
+                    .ReadToEnd();
+        }
 
         if (errorFile != null)
-            stderr = process.StandardError.ReadToEnd();
+        {
+            stderr =
+                process.StandardError
+                    .ReadToEnd();
+        }
 
         process.WaitForExit();
 
         if (outputFile != null)
         {
             if (appendOutput)
+            {
                 File.AppendAllText(
                     outputFile,
                     stdout ?? ""
                 );
+            }
             else
+            {
                 File.WriteAllText(
                     outputFile,
                     stdout ?? ""
                 );
+            }
         }
 
         if (errorFile != null)
         {
             if (appendError)
+            {
                 File.AppendAllText(
                     errorFile,
                     stderr ?? ""
                 );
+            }
             else
+            {
                 File.WriteAllText(
                     errorFile,
                     stderr ?? ""
                 );
+            }
         }
     }
 }
