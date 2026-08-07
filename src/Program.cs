@@ -1001,16 +1001,40 @@ class Program
             return;
         }
 
+        List<BackgroundJob> orderedJobs =
+            backgroundJobs
+                .OrderBy(job => job.JobNumber)
+                .ToList();
+
+        int newestJobNumber =
+            orderedJobs[^1].JobNumber;
+
+        int? previousJobNumber =
+            orderedJobs.Count >= 2
+                ? orderedJobs[^2].JobNumber
+                : null;
+
         StringBuilder output = new();
 
-        for (int i = 0; i < backgroundJobs.Count; i++)
+        foreach (BackgroundJob job in orderedJobs)
         {
-            BackgroundJob job = backgroundJobs[i];
+            char marker;
 
-            string marker =
-                i == backgroundJobs.Count - 1
-                    ? "+"
-                    : " ";
+            if (job.JobNumber == newestJobNumber)
+            {
+                marker = '+';
+            }
+            else if (
+                previousJobNumber.HasValue &&
+                job.JobNumber == previousJobNumber.Value
+            )
+            {
+                marker = '-';
+            }
+            else
+            {
+                marker = ' ';
+            }
 
             output.Append(
                 $"[{job.JobNumber}]{marker}  "
