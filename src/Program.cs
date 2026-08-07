@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 class Program
 {
@@ -48,7 +49,7 @@ class Program
                     break;
 
                 default:
-                    Console.WriteLine($"{command}: command not found");
+                    RunExternalCommand(command, args);
                     break;
             }
         }
@@ -61,21 +62,31 @@ class Program
 
         string command = args[0];
 
-        // 1. Check shell builtins
+        // Primero revisar los builtins
         if (builtins.Contains(command))
         {
             Console.WriteLine($"{command} is a shell builtin");
             return;
         }
 
-        // 2. Search PATH
+        // Después buscar en PATH
+        string? executablePath = FindExecutable(command);
+
+        if (executablePath != null)
+        {
+            Console.WriteLine($"{command} is {executablePath}");
+            return;
+        }
+
+        Console.WriteLine($"{command}: not found");
+    }
+
+    static string? FindExecutable(string command)
+    {
         string? path = Environment.GetEnvironmentVariable("PATH");
 
         if (string.IsNullOrEmpty(path))
-        {
-            Console.WriteLine($"{command}: not found");
-            return;
-        }
+            return null;
 
         foreach (string directory in path.Split(Path.PathSeparator))
         {
@@ -97,18 +108,41 @@ class Program
                     mode.HasFlag(UnixFileMode.OtherExecute);
 
                 if (executable)
-                {
-                    Console.WriteLine($"{command} is {fullPath}");
-                    return;
-                }
+                    return fullPath;
             }
             catch
             {
-                // Skip files we can't inspect.
+                // Si no podemos leer los permisos,
+                // seguimos buscando en PATH.
             }
         }
 
-        // 3. Command wasn't found
-        Console.WriteLine($"{command}: not found");
+        return null;
+    }
+
+    static void RunExternalCommand(string command, string[] args)
+    {
+        string? executablePath = FindExecutable(command);
+
+        if (executablePath == null)
+        {
+            Console.WriteLine($"{command}: command not found");
+            return;
+        }
+
+        var processInfo = new ProcessStartInfo
+        {
+            FileName = executablePath,
+            UseShellExecute = false
+        };
+
+        foreach (string arg in args)
+        {
+            processInfo.ArgumentList.Add(arg);
+        }
+
+        using Process? process = Process.Start(processInfo);
+
+        process?.WaitForExit();
     }
 }
