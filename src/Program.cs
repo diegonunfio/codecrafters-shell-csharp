@@ -43,10 +43,7 @@ class Program
     {
         while (runProgram)
         {
-            ReapCompletedJobs(
-                outputFile: null,
-                appendOutput: false
-            );
+            ReapCompletedJobsBeforePrompt();
 
             Console.Write("$ ");
             Console.Out.Flush();
@@ -993,25 +990,100 @@ class Program
         }
     }
 
+    static void RefreshJobStatuses()
+    {
+        foreach (BackgroundJob job in backgroundJobs)
+        {
+            if (job.Status == "Done")
+                continue;
+
+            if (job.Process == null)
+                continue;
+
+            try
+            {
+                if (job.Process.HasExited)
+                {
+                    job.Process.WaitForExit();
+                    job.Status = "Done";
+                }
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    static void ReapCompletedJobsBeforePrompt()
+    {
+        if (backgroundJobs.Count == 0)
+            return;
+
+        RefreshJobStatuses();
+
+        List<BackgroundJob> completedJobs =
+            backgroundJobs
+                .Where(job => job.Status == "Done")
+                .OrderBy(job => job.JobNumber)
+                .ToList();
+
+        if (completedJobs.Count == 0)
+            return;
+
+        List<BackgroundJob> allJobs =
+            backgroundJobs
+                .OrderBy(job => job.JobNumber)
+                .ToList();
+
+        int newestJobNumber =
+            allJobs[^1].JobNumber;
+
+        int? previousJobNumber =
+            allJobs.Count >= 2
+                ? allJobs[^2].JobNumber
+                : null;
+
+        foreach (BackgroundJob job in completedJobs)
+        {
+            char marker =
+                GetJobMarker(
+                    job.JobNumber,
+                    newestJobNumber,
+                    previousJobNumber
+                );
+
+            Console.Write(
+                $"[{job.JobNumber}]{marker}  "
+            );
+
+            Console.Write(
+                "Done".PadRight(24)
+            );
+
+            Console.WriteLine(
+                RemoveTrailingBackgroundMarker(
+                    job.Command
+                )
+            );
+        }
+
+        Console.Out.Flush();
+
+        RemoveCompletedJobs(completedJobs);
+    }
+
     static void HandleJobs(
         string? outputFile,
         bool appendOutput)
     {
-        bool wroteReapedJobs =
-            ReapCompletedJobs(
-                outputFile,
-                appendOutput
-            );
+        RefreshJobStatuses();
 
         if (backgroundJobs.Count == 0)
         {
-            if (!wroteReapedJobs)
-            {
-                PrepareOutputFile(
-                    outputFile,
-                    appendOutput
-                );
-            }
+            PrepareOutputFile(
+                outputFile,
+                appendOutput
+            );
 
             return;
         }
@@ -1045,90 +1117,21 @@ class Program
             );
 
             output.Append(
-                "Running".PadRight(24)
+                job.Status.PadRight(24)
             );
 
-            output.Append(job.Command);
-            output.Append(Environment.NewLine);
-        }
-
-        bool shouldAppend =
-            appendOutput || wroteReapedJobs;
-
-        WriteOutput(
-            output.ToString(),
-            outputFile,
-            shouldAppend
-        );
-    }
-
-    static bool ReapCompletedJobs(
-        string? outputFile,
-        bool appendOutput)
-    {
-        if (backgroundJobs.Count == 0)
-            return false;
-
-        List<BackgroundJob> orderedJobs =
-            backgroundJobs
-                .OrderBy(job => job.JobNumber)
-                .ToList();
-
-        List<BackgroundJob> completedJobs = new();
-
-        foreach (BackgroundJob job in orderedJobs)
-        {
-            if (job.Process == null)
-                continue;
-
-            try
+            if (job.Status == "Done")
             {
-                if (job.Process.HasExited)
-                {
-                    job.Process.WaitForExit();
-                    completedJobs.Add(job);
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        if (completedJobs.Count == 0)
-            return false;
-
-        int newestJobNumber =
-            orderedJobs[^1].JobNumber;
-
-        int? previousJobNumber =
-            orderedJobs.Count >= 2
-                ? orderedJobs[^2].JobNumber
-                : null;
-
-        StringBuilder output = new();
-
-        foreach (BackgroundJob job in completedJobs)
-        {
-            char marker =
-                GetJobMarker(
-                    job.JobNumber,
-                    newestJobNumber,
-                    previousJobNumber
+                output.Append(
+                    RemoveTrailingBackgroundMarker(
+                        job.Command
+                    )
                 );
-
-            output.Append(
-                $"[{job.JobNumber}]{marker}  "
-            );
-
-            output.Append(
-                "Done".PadRight(24)
-            );
-
-            output.Append(
-                RemoveTrailingBackgroundMarker(
-                    job.Command
-                )
-            );
+            }
+            else
+            {
+                output.Append(job.Command);
+            }
 
             output.Append(Environment.NewLine);
         }
@@ -1139,6 +1142,17 @@ class Program
             appendOutput
         );
 
+        List<BackgroundJob> completedJobs =
+            orderedJobs
+                .Where(job => job.Status == "Done")
+                .ToList();
+
+        RemoveCompletedJobs(completedJobs);
+    }
+
+    static void RemoveCompletedJobs(
+        List<BackgroundJob> completedJobs)
+    {
         foreach (BackgroundJob job in completedJobs)
         {
             backgroundJobs.Remove(job);
@@ -1151,8 +1165,6 @@ class Program
             {
             }
         }
-
-        return true;
     }
 
     static char GetJobMarker(
