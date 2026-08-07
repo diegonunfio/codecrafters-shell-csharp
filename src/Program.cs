@@ -12,6 +12,14 @@ class Program
                 break;
             }
             Console.WriteLine($"{command}: command not found");
+             else if (command.StartsWith("echo "))
+            {
+                Console.WriteLine(command[5..]);
+            }
+            else
+            {
+                Console.WriteLine($"{command}: command not found");
+            }
         }
     }
         }
