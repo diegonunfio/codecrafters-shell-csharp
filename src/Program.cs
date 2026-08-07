@@ -486,7 +486,7 @@ class Program
         List<string> words =
             SplitWords(beforeCurrent);
 
-        if (words.Count <= 1)
+        if (words.Count == 0)
             return "";
 
         return words[^1];
@@ -550,6 +550,12 @@ class Program
                 .Split(
                     new[] { '\r', '\n' },
                     StringSplitOptions.RemoveEmptyEntries
+                )
+                .Where(x =>
+                    x.StartsWith(
+                        currentWord,
+                        StringComparison.Ordinal
+                    )
                 )
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(
@@ -916,6 +922,15 @@ class Program
 
             completionSpecs[commandName] =
                 completerPath;
+
+            return;
+        }
+
+        if (args.Length >= 2 && args[0] == "-r")
+        {
+            string commandName = args[1];
+
+            completionSpecs.Remove(commandName);
 
             return;
         }
