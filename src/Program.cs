@@ -1,3 +1,4 @@
+```csharp id="81542"
 using System;
 using System.IO;
 using System.Linq;
@@ -37,6 +38,7 @@ class Program
             string? outputFile = null;
             string? errorFile = null;
             bool appendOutput = false;
+            bool appendError = false;
 
             List<string> commandParts = new();
 
@@ -71,6 +73,19 @@ class Program
                     if (i + 1 < parts.Count)
                     {
                         errorFile = parts[i + 1];
+                        appendError = false;
+                        i++;
+                    }
+
+                    continue;
+                }
+
+                if (parts[i] == "2>>")
+                {
+                    if (i + 1 < parts.Count)
+                    {
+                        errorFile = parts[i + 1];
+                        appendError = true;
                         i++;
                     }
 
@@ -91,7 +106,8 @@ class Program
                 args,
                 outputFile,
                 errorFile,
-                appendOutput
+                appendOutput,
+                appendError
             );
         }
     }
@@ -101,7 +117,8 @@ class Program
         string[] args,
         string? outputFile,
         string? errorFile,
-        bool appendOutput)
+        bool appendOutput,
+        bool appendError)
     {
         switch (command)
         {
@@ -116,12 +133,12 @@ class Program
                     appendOutput
                 );
 
-                CreateEmptyFileIfNeeded(errorFile);
+                PrepareErrorFile(errorFile, appendError);
                 break;
 
             case "type":
                 HandleType(args, outputFile, appendOutput);
-                CreateEmptyFileIfNeeded(errorFile);
+                PrepareErrorFile(errorFile, appendError);
                 break;
 
             case "pwd":
@@ -131,11 +148,11 @@ class Program
                     appendOutput
                 );
 
-                CreateEmptyFileIfNeeded(errorFile);
+                PrepareErrorFile(errorFile, appendError);
                 break;
 
             case "cd":
-                HandleCd(args, errorFile);
+                HandleCd(args, errorFile, appendError);
                 break;
 
             default:
@@ -144,7 +161,8 @@ class Program
                     args,
                     outputFile,
                     errorFile,
-                    appendOutput
+                    appendOutput,
+                    appendError
                 );
                 break;
         }
@@ -162,16 +180,15 @@ class Program
         }
 
         if (append)
-        {
             File.AppendAllText(outputFile, text);
-        }
         else
-        {
             File.WriteAllText(outputFile, text);
-        }
     }
 
-    static void WriteError(string text, string? errorFile)
+    static void WriteError(
+        string text,
+        string? errorFile,
+        bool append)
     {
         if (errorFile == null)
         {
@@ -179,14 +196,27 @@ class Program
             return;
         }
 
-        File.WriteAllText(errorFile, text);
+        if (append)
+            File.AppendAllText(errorFile, text);
+        else
+            File.WriteAllText(errorFile, text);
     }
 
-    static void CreateEmptyFileIfNeeded(string? file)
+    static void PrepareErrorFile(
+        string? errorFile,
+        bool appendError)
     {
-        if (file != null)
+        if (errorFile == null)
+            return;
+
+        if (appendError)
         {
-            File.WriteAllText(file, "");
+            if (!File.Exists(errorFile))
+                File.WriteAllText(errorFile, "");
+        }
+        else
+        {
+            File.WriteAllText(errorFile, "");
         }
     }
 
@@ -287,8 +317,11 @@ class Program
             if (c == '>')
             {
                 string prefix = current.ToString();
+                bool isAppend =
+                    i + 1 < input.Length &&
+                    input[i + 1] == '>';
 
-                if (i + 1 < input.Length && input[i + 1] == '>')
+                if (isAppend)
                 {
                     i++;
 
@@ -296,12 +329,14 @@ class Program
                     {
                         args.Add("1>>");
                     }
+                    else if (prefix == "2")
+                    {
+                        args.Add("2>>");
+                    }
                     else
                     {
                         if (argumentStarted)
-                        {
                             args.Add(prefix);
-                        }
 
                         args.Add(">>");
                     }
@@ -319,9 +354,7 @@ class Program
                     else
                     {
                         if (argumentStarted)
-                        {
                             args.Add(prefix);
-                        }
 
                         args.Add(">");
                     }
@@ -349,18 +382,19 @@ class Program
         }
 
         if (argumentStarted)
-        {
             args.Add(current.ToString());
-        }
 
         return args;
     }
 
-    static void HandleCd(string[] args, string? errorFile)
+    static void HandleCd(
+        string[] args,
+        string? errorFile,
+        bool appendError)
     {
         if (args.Length == 0)
         {
-            CreateEmptyFileIfNeeded(errorFile);
+            PrepareErrorFile(errorFile, appendError);
             return;
         }
 
@@ -368,19 +402,22 @@ class Program
 
         if (directory == "~")
         {
-            string? home = Environment.GetEnvironmentVariable("HOME");
+            string? home =
+                Environment.GetEnvironmentVariable("HOME");
 
-            if (string.IsNullOrEmpty(home) || !Directory.Exists(home))
+            if (string.IsNullOrEmpty(home) ||
+                !Directory.Exists(home))
             {
                 WriteError(
                     $"cd: {directory}: No such file or directory{Environment.NewLine}",
-                    errorFile
+                    errorFile,
+                    appendError
                 );
                 return;
             }
 
             Directory.SetCurrentDirectory(home);
-            CreateEmptyFileIfNeeded(errorFile);
+            PrepareErrorFile(errorFile, appendError);
             return;
         }
 
@@ -395,7 +432,8 @@ class Program
         {
             WriteError(
                 $"cd: {directory}: No such file or directory{Environment.NewLine}",
-                errorFile
+                errorFile,
+                appendError
             );
             return;
         }
@@ -404,7 +442,7 @@ class Program
             Path.GetFullPath(targetPath)
         );
 
-        CreateEmptyFileIfNeeded(errorFile);
+        PrepareErrorFile(errorFile, appendError);
     }
 
     static void HandleType(
@@ -492,7 +530,8 @@ class Program
         string[] args,
         string? outputFile,
         string? errorFile,
-        bool appendOutput)
+        bool appendOutput,
+        bool appendError)
     {
         string? executablePath = FindExecutable(command);
 
@@ -500,7 +539,8 @@ class Program
         {
             WriteError(
                 $"{command}: command not found{Environment.NewLine}",
-                errorFile
+                errorFile,
+                appendError
             );
             return;
         }
@@ -516,9 +556,7 @@ class Program
         processInfo.ArgumentList.Add(command);
 
         foreach (string arg in args)
-        {
             processInfo.ArgumentList.Add(arg);
-        }
 
         using Process? process = Process.Start(processInfo);
 
@@ -529,32 +567,28 @@ class Program
         string? stderr = null;
 
         if (outputFile != null)
-        {
             stdout = process.StandardOutput.ReadToEnd();
-        }
 
         if (errorFile != null)
-        {
             stderr = process.StandardError.ReadToEnd();
-        }
 
         process.WaitForExit();
 
         if (outputFile != null)
         {
             if (appendOutput)
-            {
                 File.AppendAllText(outputFile, stdout ?? "");
-            }
             else
-            {
                 File.WriteAllText(outputFile, stdout ?? "");
-            }
         }
 
         if (errorFile != null)
         {
-            File.WriteAllText(errorFile, stderr ?? "");
+            if (appendError)
+                File.AppendAllText(errorFile, stderr ?? "");
+            else
+                File.WriteAllText(errorFile, stderr ?? "");
         }
     }
 }
+```
