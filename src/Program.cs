@@ -43,6 +43,11 @@ class Program
     {
         while (runProgram)
         {
+            ReapCompletedJobs(
+                outputFile: null,
+                appendOutput: false
+            );
+
             Console.Write("$ ");
             Console.Out.Flush();
 
@@ -407,6 +412,7 @@ class Program
                 if (commandMatches.Count == 1)
                 {
                     string match = commandMatches[0];
+
                     string remaining =
                         match.Substring(current.Length);
 
@@ -991,32 +997,23 @@ class Program
         string? outputFile,
         bool appendOutput)
     {
-        if (backgroundJobs.Count == 0)
-        {
-            PrepareOutputFile(
+        bool wroteReapedJobs =
+            ReapCompletedJobs(
                 outputFile,
                 appendOutput
             );
 
-            return;
-        }
-
-        foreach (BackgroundJob job in backgroundJobs)
+        if (backgroundJobs.Count == 0)
         {
-            if (job.Process == null)
-                continue;
+            if (!wroteReapedJobs)
+            {
+                PrepareOutputFile(
+                    outputFile,
+                    appendOutput
+                );
+            }
 
-            try
-            {
-                if (job.Process.HasExited)
-                {
-                    job.Process.WaitForExit();
-                    job.Status = "Done";
-                }
-            }
-            catch
-            {
-            }
+            return;
         }
 
         List<BackgroundJob> orderedJobs =
@@ -1036,43 +1033,103 @@ class Program
 
         foreach (BackgroundJob job in orderedJobs)
         {
-            char marker;
-
-            if (job.JobNumber == newestJobNumber)
-            {
-                marker = '+';
-            }
-            else if (
-                previousJobNumber.HasValue &&
-                job.JobNumber == previousJobNumber.Value
-            )
-            {
-                marker = '-';
-            }
-            else
-            {
-                marker = ' ';
-            }
+            char marker =
+                GetJobMarker(
+                    job.JobNumber,
+                    newestJobNumber,
+                    previousJobNumber
+                );
 
             output.Append(
                 $"[{job.JobNumber}]{marker}  "
             );
 
             output.Append(
-                job.Status.PadRight(24)
+                "Running".PadRight(24)
             );
 
-            string commandToDisplay = job.Command;
+            output.Append(job.Command);
+            output.Append(Environment.NewLine);
+        }
 
-            if (job.Status == "Done")
+        bool shouldAppend =
+            appendOutput || wroteReapedJobs;
+
+        WriteOutput(
+            output.ToString(),
+            outputFile,
+            shouldAppend
+        );
+    }
+
+    static bool ReapCompletedJobs(
+        string? outputFile,
+        bool appendOutput)
+    {
+        if (backgroundJobs.Count == 0)
+            return false;
+
+        List<BackgroundJob> orderedJobs =
+            backgroundJobs
+                .OrderBy(job => job.JobNumber)
+                .ToList();
+
+        List<BackgroundJob> completedJobs = new();
+
+        foreach (BackgroundJob job in orderedJobs)
+        {
+            if (job.Process == null)
+                continue;
+
+            try
             {
-                commandToDisplay =
-                    RemoveTrailingBackgroundMarker(
-                        commandToDisplay
-                    );
+                if (job.Process.HasExited)
+                {
+                    job.Process.WaitForExit();
+                    completedJobs.Add(job);
+                }
             }
+            catch
+            {
+            }
+        }
 
-            output.Append(commandToDisplay);
+        if (completedJobs.Count == 0)
+            return false;
+
+        int newestJobNumber =
+            orderedJobs[^1].JobNumber;
+
+        int? previousJobNumber =
+            orderedJobs.Count >= 2
+                ? orderedJobs[^2].JobNumber
+                : null;
+
+        StringBuilder output = new();
+
+        foreach (BackgroundJob job in completedJobs)
+        {
+            char marker =
+                GetJobMarker(
+                    job.JobNumber,
+                    newestJobNumber,
+                    previousJobNumber
+                );
+
+            output.Append(
+                $"[{job.JobNumber}]{marker}  "
+            );
+
+            output.Append(
+                "Done".PadRight(24)
+            );
+
+            output.Append(
+                RemoveTrailingBackgroundMarker(
+                    job.Command
+                )
+            );
+
             output.Append(Environment.NewLine);
         }
 
@@ -1081,11 +1138,6 @@ class Program
             outputFile,
             appendOutput
         );
-
-        List<BackgroundJob> completedJobs =
-            backgroundJobs
-                .Where(job => job.Status == "Done")
-                .ToList();
 
         foreach (BackgroundJob job in completedJobs)
         {
@@ -1099,6 +1151,27 @@ class Program
             {
             }
         }
+
+        return true;
+    }
+
+    static char GetJobMarker(
+        int jobNumber,
+        int newestJobNumber,
+        int? previousJobNumber)
+    {
+        if (jobNumber == newestJobNumber)
+            return '+';
+
+        if (
+            previousJobNumber.HasValue &&
+            jobNumber == previousJobNumber.Value
+        )
+        {
+            return '-';
+        }
+
+        return ' ';
     }
 
     static string RemoveTrailingBackgroundMarker(
