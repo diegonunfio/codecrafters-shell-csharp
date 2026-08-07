@@ -6,7 +6,7 @@ class Program
         {
             Console.Write("$ ");
             // Wait for user input
-               var command = Console.ReadLine();
+            var command = Console.ReadLine();
             if (command == "exit")
             {
                 break;
@@ -15,5 +15,3 @@ class Program
         }
     }
         }
-    }
-}
