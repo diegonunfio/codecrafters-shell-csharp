@@ -19,6 +19,8 @@ class Program
         "complete"
     };
 
+    static readonly Dictionary<string, string> completionSpecs = new();
+
     static void Main()
     {
         while (runProgram)
@@ -628,9 +630,31 @@ class Program
         string? outputFile,
         bool appendOutput)
     {
+        if (args.Length >= 3 && args[0] == "-C")
+        {
+            string completerPath = args[1];
+            string commandName = args[2];
+
+            completionSpecs[commandName] = completerPath;
+            return;
+        }
+
         if (args.Length >= 2 && args[0] == "-p")
         {
             string commandName = args[1];
+
+            if (completionSpecs.TryGetValue(
+                commandName,
+                out string? completerPath))
+            {
+                WriteOutput(
+                    $"complete -C '{completerPath}' {commandName}{Environment.NewLine}",
+                    outputFile,
+                    appendOutput
+                );
+
+                return;
+            }
 
             WriteOutput(
                 $"complete: {commandName}: no completion specification{Environment.NewLine}",
