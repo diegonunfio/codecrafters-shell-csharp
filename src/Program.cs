@@ -169,7 +169,8 @@ class Program
                                 completerPath,
                                 commandName,
                                 currentWord,
-                                previousWord
+                                previousWord,
+                                current
                             );
 
                         if (candidates.Count == 1)
@@ -403,9 +404,7 @@ class Program
             Console.Write("\b \b");
 
         if (currentWord.Length > 0)
-        {
             input.Length -= currentWord.Length;
-        }
 
         input.Append(candidate);
         input.Append(' ');
@@ -470,7 +469,8 @@ class Program
         string completerPath,
         string commandName,
         string currentWord,
-        string previousWord)
+        string previousWord,
+        string fullCommandLine)
     {
         List<string> candidates = new();
 
@@ -487,6 +487,14 @@ class Program
             processInfo.ArgumentList.Add(commandName);
             processInfo.ArgumentList.Add(currentWord);
             processInfo.ArgumentList.Add(previousWord);
+
+            processInfo.Environment["COMP_LINE"] =
+                fullCommandLine;
+
+            processInfo.Environment["COMP_POINT"] =
+                Encoding.UTF8
+                    .GetByteCount(fullCommandLine)
+                    .ToString();
 
             using Process? process =
                 Process.Start(processInfo);
