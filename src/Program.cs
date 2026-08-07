@@ -13,7 +13,8 @@ class Program
         "exit",
         "echo",
         "type",
-        "pwd"
+        "pwd",
+        "cd"
     };
 
     static void Main()
@@ -53,11 +54,31 @@ class Program
                     Console.WriteLine(Directory.GetCurrentDirectory());
                     break;
 
+                case "cd":
+                    HandleCd(args);
+                    break;
+
                 default:
                     RunExternalCommand(command, args);
                     break;
             }
         }
+    }
+
+    static void HandleCd(string[] args)
+    {
+        if (args.Length == 0)
+            return;
+
+        string directory = args[0];
+
+        if (!Directory.Exists(directory))
+        {
+            Console.WriteLine($"cd: {directory}: No such file or directory");
+            return;
+        }
+
+        Directory.SetCurrentDirectory(directory);
     }
 
     static void HandleType(string[] args)
