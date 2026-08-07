@@ -72,6 +72,20 @@ class Program
 
         string directory = args[0];
 
+        if (directory == "~")
+        {
+            string? home = Environment.GetEnvironmentVariable("HOME");
+
+            if (string.IsNullOrEmpty(home) || !Directory.Exists(home))
+            {
+                Console.WriteLine($"cd: {directory}: No such file or directory");
+                return;
+            }
+
+            Directory.SetCurrentDirectory(home);
+            return;
+        }
+
         string targetPath = Path.IsPathRooted(directory)
             ? directory
             : Path.Combine(Directory.GetCurrentDirectory(), directory);
