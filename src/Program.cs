@@ -1,14 +1,21 @@
-using CodeCrafters.Shell;
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
 
 class Program
 {
-    private static Dictionary<string, Command> commands = new();
-    private static bool runProgram = true;
+    static bool runProgram = true;
+
+    static readonly HashSet<string> builtins = new()
+    {
+        "exit",
+        "echo",
+        "type"
+    };
 
     static void Main()
     {
-        Init();
-
         while (runProgram)
         {
             Console.Write("$ ");
@@ -16,130 +23,92 @@ class Program
             string? input = Console.ReadLine();
 
             if (string.IsNullOrWhiteSpace(input))
-            {
                 continue;
-            }
 
-            List<string> inputList = input
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .ToList();
+            string[] parts = input.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
 
-            string commandName = inputList[0];
+            string command = parts[0];
+            string[] args = parts.Skip(1).ToArray();
 
-            if (commands.TryGetValue(commandName, out Command? command))
+            switch (command)
             {
-                command.Execute(inputList.Skip(1).ToArray());
-                continue;
-            }
+                case "exit":
+                    runProgram = false;
+                    break;
 
-            Console.WriteLine($"{commandName}: command not found");
+                case "echo":
+                    Console.WriteLine(string.Join(" ", args));
+                    break;
+
+                case "type":
+                    HandleType(args);
+                    break;
+
+                default:
+                    Console.WriteLine($"{command}: command not found");
+                    break;
+            }
         }
     }
 
-    static void Init()
+    static void HandleType(string[] args)
     {
-        commands.Add(
-            "exit",
-            new Command(
-                "exit",
-                "Exits the program.",
-                "exit",
-                args =>
+        if (args.Length == 0)
+            return;
+
+        string command = args[0];
+
+        // 1. Check shell builtins
+        if (builtins.Contains(command))
+        {
+            Console.WriteLine($"{command} is a shell builtin");
+            return;
+        }
+
+        // 2. Search PATH
+        string? path = Environment.GetEnvironmentVariable("PATH");
+
+        if (string.IsNullOrEmpty(path))
+        {
+            Console.WriteLine($"{command}: not found");
+            return;
+        }
+
+        foreach (string directory in path.Split(Path.PathSeparator))
+        {
+            if (string.IsNullOrEmpty(directory))
+                continue;
+
+            string fullPath = Path.Combine(directory, command);
+
+            if (!File.Exists(fullPath))
+                continue;
+
+            try
+            {
+                UnixFileMode mode = File.GetUnixFileMode(fullPath);
+
+                bool executable =
+                    mode.HasFlag(UnixFileMode.UserExecute) ||
+                    mode.HasFlag(UnixFileMode.GroupExecute) ||
+                    mode.HasFlag(UnixFileMode.OtherExecute);
+
+                if (executable)
                 {
-                    runProgram = false;
+                    Console.WriteLine($"{command} is {fullPath}");
+                    return;
                 }
-            )
-        );
+            }
+            catch
+            {
+                // Skip files we can't inspect.
+            }
+        }
 
-        commands.Add(
-            "echo",
-            new Command(
-                "echo",
-                "Repeats the string after echo",
-                "echo <>",
-                args =>
-                {
-                    Console.WriteLine(string.Join(" ", args));
-                }
-            )
-        );
-
-        commands.Add(
-            "type",
-            new Command(
-                "type",
-                "Shows whether a command is a shell builtin or executable.",
-                "type <command>",
-                args =>
-                {
-                    if (args.Length == 0)
-                    {
-                        Console.WriteLine("Usage: " + commands["type"].Usage);
-                        return;
-                    }
-
-                    string commandName = args[0];
-
-                    // 1. Check builtins first
-                    if (commands.ContainsKey(commandName))
-                    {
-                        Console.WriteLine($"{commandName} is a shell builtin");
-                        return;
-                    }
-
-                    // 2. Search PATH
-                    string? path = Environment.GetEnvironmentVariable("PATH");
-
-                    if (string.IsNullOrEmpty(path))
-                    {
-                        Console.WriteLine($"{commandName}: not found");
-                        return;
-                    }
-
-                    string[] directories = path.Split(Path.PathSeparator);
-
-                    foreach (string directory in directories)
-                    {
-                        if (string.IsNullOrEmpty(directory))
-                        {
-                            continue;
-                        }
-
-                        string fullPath = Path.Combine(directory, commandName);
-
-                        if (!File.Exists(fullPath))
-                        {
-                            continue;
-                        }
-
-                        try
-                        {
-                            UnixFileMode mode = File.GetUnixFileMode(fullPath);
-
-                            bool executable =
-                                mode.HasFlag(UnixFileMode.UserExecute) ||
-                                mode.HasFlag(UnixFileMode.GroupExecute) ||
-                                mode.HasFlag(UnixFileMode.OtherExecute);
-
-                            if (executable)
-                            {
-                                Console.WriteLine(
-                                    $"{commandName} is {fullPath}"
-                                );
-                                return;
-                            }
-                        }
-                        catch
-                        {
-                            // Ignore inaccessible/non-Unix files and
-                            // continue searching the next PATH directory.
-                        }
-                    }
-
-                  
-                    Console.WriteLine($"{commandName}: not found");
-                }
-            )
-        );
+        // 3. Command wasn't found
+        Console.WriteLine($"{command}: not found");
     }
 }
