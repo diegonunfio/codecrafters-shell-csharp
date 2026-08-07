@@ -1,35 +1,71 @@
+using System.Collections;
+using System.ComponentModel.Design;
+using CodeCrafters.Shell;
+
 class Program {
-  static void Main(string[] args) {
+  static private Dictionary<string, Command> commands;
+  static private bool runProgram = true;
 
-    while (true) {
-      var exit = "exit";
-      var echo = "echo";
-      var type = "type";
-      var valid = new[] { exit, echo, type };
-
+  static void Main() {
+    init();
+    while (runProgram) {
       Console.Write("$ ");
-      var Test = Console.ReadLine();
-      if (valid.Any(Test.Contains)) {
-        if (Test == "exit") {
-          return;
-        } else if (Test.StartsWith("echo")) {
-          Console.WriteLine(Test[5..]);
-        } else if (Test.Contains("exit")) {
-          Console.WriteLine($"{Test[5..]} is a shell builtin");
-        } else if (Test.Contains("echo")) {
-          Console.WriteLine($"{Test[5..]} is a shell builtin");
-        }
-
-        else if (Test.EndsWith("type")) {
-          Console.WriteLine($"{Test[5..]} is a shell builtin");
-
-        } else {
-          Console.WriteLine($"{Test[5..]}: not found");
-        }
-
-      } else {
-        Console.WriteLine($"{Test}: command not found");
+      String? input = Console.ReadLine();
+      input = input == null ? "" : input;
+      if (input == "") {
+        continue;
       }
+
+      List<string> inputList = input.Split(" ").ToList();
+      Command? command = null;
+      if (commands.TryGetValue(inputList[0], out command)) {
+        command.Execute(inputList.Skip(1).ToList().ToArray());
+        continue;
+      }
+      Console.Write(input + ": command not found\n");
     }
+  }
+
+  static void init() {
+    commands = new Dictionary<string, Command>();
+    commands.Add("exit", new Command("exit", "Exits the program.", "exit",
+                                     strings => { runProgram = false; }));
+    commands.Add("echo", new Command("echo", "Repeats the string after echo",
+                                     "echo <>", strings => {
+                                       foreach (string input in strings) {
+                                         Console.Write(input + " ");
+                                       }
+                                       Console.Write("\n");
+                                     }));
+    commands.Add(
+        "type",
+        new Command("type", "Writes the type of the variable.", "type <>",
+                    strings => {
+                      if (strings.Length == 0) {
+                        Console.WriteLine("Usage: " + commands["type"].Usage);
+                        return;
+                      }
+
+                      string command = strings[0];
+                      if (commands.ContainsKey(command)) {
+
+                        Console.WriteLine(commands[command].Name +
+                                          " is a shell builtin");
+                        return;
+                      }
+                      var path = Environment.GetEnvironmentVariable("PATH");
+                      char separator = Path.PathSeparator;
+                      string[] folders = path!.Split(separator);
+                      foreach (var folder in folders) {
+                        var filePath = Path.Combine(folder, command);
+                        if (File.Exists(filePath) &&
+                            File.GetUnixFileMode(filePath).HasFlag(
+                                UnixFileMode.UserExecute)) {
+                          Console.WriteLine($"{command} is {filePath}");
+                          return;
+                        }
+                      }
+                      Console.Write(strings[0] + ": not found\n");
+                    }));
   }
 }
