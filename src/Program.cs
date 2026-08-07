@@ -72,20 +72,28 @@ class Program
         StringBuilder current = new();
 
         bool inSingleQuotes = false;
+        bool inDoubleQuotes = false;
         bool argumentStarted = false;
 
         for (int i = 0; i < input.Length; i++)
         {
             char c = input[i];
 
-            if (c == '\'')
+            if (c == '\'' && !inDoubleQuotes)
             {
                 inSingleQuotes = !inSingleQuotes;
                 argumentStarted = true;
                 continue;
             }
 
-            if (char.IsWhiteSpace(c) && !inSingleQuotes)
+            if (c == '"' && !inSingleQuotes)
+            {
+                inDoubleQuotes = !inDoubleQuotes;
+                argumentStarted = true;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(c) && !inSingleQuotes && !inDoubleQuotes)
             {
                 if (argumentStarted)
                 {
