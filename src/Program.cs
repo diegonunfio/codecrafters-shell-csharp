@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text;
 
 class Program
 {
@@ -28,10 +29,10 @@ class Program
             if (string.IsNullOrWhiteSpace(input))
                 continue;
 
-            string[] parts = input.Split(
-                ' ',
-                StringSplitOptions.RemoveEmptyEntries
-            );
+            List<string> parts = ParseInput(input);
+
+            if (parts.Count == 0)
+                continue;
 
             string command = parts[0];
             string[] args = parts.Skip(1).ToArray();
@@ -63,6 +64,49 @@ class Program
                     break;
             }
         }
+    }
+
+    static List<string> ParseInput(string input)
+    {
+        List<string> args = new();
+        StringBuilder current = new();
+
+        bool inSingleQuotes = false;
+        bool argumentStarted = false;
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            char c = input[i];
+
+            if (c == '\'')
+            {
+                inSingleQuotes = !inSingleQuotes;
+                argumentStarted = true;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(c) && !inSingleQuotes)
+            {
+                if (argumentStarted)
+                {
+                    args.Add(current.ToString());
+                    current.Clear();
+                    argumentStarted = false;
+                }
+
+                continue;
+            }
+
+            current.Append(c);
+            argumentStarted = true;
+        }
+
+        if (argumentStarted)
+        {
+            args.Add(current.ToString());
+        }
+
+        return args;
     }
 
     static void HandleCd(string[] args)
