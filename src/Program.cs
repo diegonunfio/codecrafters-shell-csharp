@@ -72,13 +72,17 @@ class Program
 
         string directory = args[0];
 
-        if (!Directory.Exists(directory))
+        string targetPath = Path.IsPathRooted(directory)
+            ? directory
+            : Path.Combine(Directory.GetCurrentDirectory(), directory);
+
+        if (!Directory.Exists(targetPath))
         {
             Console.WriteLine($"cd: {directory}: No such file or directory");
             return;
         }
 
-        Directory.SetCurrentDirectory(directory);
+        Directory.SetCurrentDirectory(Path.GetFullPath(targetPath));
     }
 
     static void HandleType(string[] args)
