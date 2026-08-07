@@ -62,14 +62,12 @@ class Program
 
         string command = args[0];
 
-        // Primero revisar los builtins
         if (builtins.Contains(command))
         {
             Console.WriteLine($"{command} is a shell builtin");
             return;
         }
 
-        // Después buscar en PATH
         string? executablePath = FindExecutable(command);
 
         if (executablePath != null)
@@ -112,8 +110,7 @@ class Program
             }
             catch
             {
-                // Si no podemos leer los permisos,
-                // seguimos buscando en PATH.
+                continue;
             }
         }
 
