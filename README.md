@@ -1,34 +1,80 @@
-[![progress-banner](https://backend.codecrafters.io/progress/shell/62ff1372-cac6-43df-8ac4-583c011f2234)](https://app.codecrafters.io/users/diegonunfio?r=2qF)
+# C# Shell
 
-This is a starting point for C# solutions to the
-["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
+A Unix-like shell built from scratch in C# and .NET as part of the CodeCrafters **Build Your Own Shell** challenge.
 
-In this challenge, you'll build your own POSIX compliant shell that's capable of
-interpreting shell commands, running external programs and builtin commands like
-cd, pwd, echo and more. Along the way, you'll learn about shell command parsing,
-REPLs, builtin commands, and more.
+The project focuses on understanding how a shell works internally: parsing input, resolving executables, managing processes, handling redirections, autocompletion, and background jobs.
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+## Features
 
-# Passing the first stage
+* Built-in commands: `echo`, `cd`, `pwd`, `type`, `exit`, `complete`, `jobs`
+* External command execution using `PATH`
+* Single and double quoted arguments
+* Backslash escaping
+* stdout/stderr redirection
+* Append redirection with `>>`
+* File and directory tab completion
+* Executable and builtin command completion
+* Programmable completion with `complete -C`
+* Longest common prefix completion
+* Background execution with `&`
+* Background job tracking with `jobs`
+* Job status markers (`+` and `-`)
+* Automatic reaping of completed jobs
+* Job number recycling
 
-The entry point for your `shell` implementation is in `src/Program.cs`. Study
-and uncomment the relevant code, then run the command below to execute the tests
-on our servers:
+## Example
 
 ```sh
-codecrafters submit
+$ echo hello
+hello
+
+$ type echo
+echo is a shell builtin
+
+$ sleep 10 &
+[1] 12345
+
+$ jobs
+[1]+  Running                 sleep 10 &
 ```
 
-Time to move on to the next stage!
+Completed jobs are detected automatically:
 
-# Stage 2 & beyond
+```sh
+$ sleep 2 &
+[1] 12345
 
-Note: This section is for stages 2 and beyond.
+$ echo done
+done
+[1]+  Done                    sleep 2
+$
+```
 
-1. Ensure you have `dotnet (10.0)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/Program.cs`.
-1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
-   output will be streamed to your terminal.
+## Running locally
+
+Requires:
+
+* .NET SDK 10
+* Linux or WSL
+
+Clone and run:
+
+```sh
+git clone https://github.com/diegonunfio/codecrafters-shell-csharp.git
+cd codecrafters-shell-csharp
+dotnet run
+```
+
+The implementation is located in:
+
+```text
+src/Program.cs
+```
+
+> On Windows, using WSL is recommended because the shell relies on Unix process and filesystem behavior.
+
+## About
+
+This started as my solution to the CodeCrafters [Build Your Own Shell](https://app.codecrafters.io/courses/shell/overview) challenge.
+
+The main goal was to go beyond using a shell every day and understand how command parsing, process execution, completion, redirection, and job management work underneath.
