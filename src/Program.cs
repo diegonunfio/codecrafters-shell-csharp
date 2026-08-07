@@ -16,7 +16,8 @@ class Program
         "type",
         "pwd",
         "cd",
-        "complete"
+        "complete",
+        "jobs"
     };
 
     static readonly Dictionary<string, string> completionSpecs = new();
@@ -547,6 +548,7 @@ class Program
             processInfo.Environment.Clear();
             processInfo.Environment["COMP_LINE"] =
                 fullCommandLine;
+
             processInfo.Environment["COMP_POINT"] =
                 Encoding.UTF8
                     .GetByteCount(fullCommandLine)
@@ -916,6 +918,18 @@ class Program
                 );
                 break;
 
+            case "jobs":
+                PrepareOutputFile(
+                    outputFile,
+                    appendOutput
+                );
+
+                PrepareErrorFile(
+                    errorFile,
+                    appendError
+                );
+                break;
+
             default:
                 RunExternalCommand(
                     command,
@@ -1013,6 +1027,24 @@ class Program
             File.AppendAllText(errorFile, text);
         else
             File.WriteAllText(errorFile, text);
+    }
+
+    static void PrepareOutputFile(
+        string? outputFile,
+        bool appendOutput)
+    {
+        if (outputFile == null)
+            return;
+
+        if (appendOutput)
+        {
+            if (!File.Exists(outputFile))
+                File.WriteAllText(outputFile, "");
+        }
+        else
+        {
+            File.WriteAllText(outputFile, "");
+        }
     }
 
     static void PrepareErrorFile(
