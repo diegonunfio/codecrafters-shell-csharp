@@ -162,11 +162,7 @@ class Program
                             current.Substring(tokenStart);
 
                         string previousWord =
-                            GetPreviousWord(
-                                current,
-                                tokenStart,
-                                currentWord
-                            );
+                            GetPreviousWord(current, tokenStart);
 
                         List<string> candidates =
                             RunCompleter(
@@ -176,20 +172,6 @@ class Program
                                 previousWord,
                                 current
                             );
-
-                        candidates = candidates
-                            .Where(x =>
-                                x.StartsWith(
-                                    currentWord,
-                                    StringComparison.Ordinal
-                                )
-                            )
-                            .Distinct(StringComparer.Ordinal)
-                            .OrderBy(
-                                x => x,
-                                StringComparer.Ordinal
-                            )
-                            .ToList();
 
                         if (candidates.Count == 1)
                         {
@@ -214,25 +196,6 @@ class Program
                             continue;
                         }
 
-                        string completerCommonPrefix =
-                            GetLongestCommonPrefix(candidates);
-
-                        if (completerCommonPrefix.Length >
-                            currentWord.Length)
-                        {
-                            string remaining =
-                                completerCommonPrefix.Substring(
-                                    currentWord.Length
-                                );
-
-                            input.Append(remaining);
-                            Console.Write(remaining);
-
-                            consecutiveTabs = 0;
-                            lastTabInput = "";
-                            continue;
-                        }
-
                         if (lastTabInput == current)
                             consecutiveTabs++;
                         else
@@ -252,6 +215,10 @@ class Program
                             string.Join(
                                 "  ",
                                 candidates
+                                    .OrderBy(
+                                        x => x,
+                                        StringComparer.Ordinal
+                                    )
                             )
                         );
 
@@ -504,12 +471,8 @@ class Program
 
     static string GetPreviousWord(
         string input,
-        int currentTokenStart,
-        string currentWord)
+        int currentTokenStart)
     {
-        if (string.IsNullOrEmpty(currentWord))
-            return "";
-
         if (currentTokenStart <= 0)
             return "";
 
@@ -523,7 +486,7 @@ class Program
         List<string> words =
             SplitWords(beforeCurrent);
 
-        if (words.Count == 0)
+        if (words.Count <= 1)
             return "";
 
         return words[^1];
