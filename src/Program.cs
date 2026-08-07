@@ -18,13 +18,19 @@ class Program
         "cd"
     };
 
+    static readonly string[] autocompleteBuiltins =
+    {
+        "echo",
+        "exit"
+    };
+
     static void Main()
     {
         while (runProgram)
         {
             Console.Write("$ ");
 
-            string? input = Console.ReadLine();
+            string input = ReadInput();
 
             if (string.IsNullOrWhiteSpace(input))
                 continue;
@@ -36,6 +42,7 @@ class Program
 
             string? outputFile = null;
             string? errorFile = null;
+
             bool appendOutput = false;
             bool appendError = false;
 
@@ -111,6 +118,69 @@ class Program
         }
     }
 
+    static string ReadInput()
+    {
+        StringBuilder input = new();
+
+        while (true)
+        {
+            ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+
+            if (key.Key == ConsoleKey.Enter)
+            {
+                Console.WriteLine();
+                return input.ToString();
+            }
+
+            if (key.Key == ConsoleKey.Backspace)
+            {
+                if (input.Length > 0)
+                {
+                    input.Length--;
+
+                    Console.Write("\b \b");
+                }
+
+                continue;
+            }
+
+            if (key.Key == ConsoleKey.Tab)
+            {
+                string current = input.ToString();
+
+                if (!current.Contains(' '))
+                {
+                    string? match = autocompleteBuiltins
+                        .FirstOrDefault(x =>
+                            x.StartsWith(
+                                current,
+                                StringComparison.Ordinal
+                            )
+                        );
+
+                    if (match != null)
+                    {
+                        string remaining = match.Substring(current.Length);
+
+                        input.Append(remaining);
+                        input.Append(' ');
+
+                        Console.Write(remaining);
+                        Console.Write(" ");
+                    }
+                }
+
+                continue;
+            }
+
+            if (!char.IsControl(key.KeyChar))
+            {
+                input.Append(key.KeyChar);
+                Console.Write(key.KeyChar);
+            }
+        }
+    }
+
     static void ExecuteCommand(
         string command,
         string[] args,
@@ -136,7 +206,12 @@ class Program
                 break;
 
             case "type":
-                HandleType(args, outputFile, appendOutput);
+                HandleType(
+                    args,
+                    outputFile,
+                    appendOutput
+                );
+
                 PrepareErrorFile(errorFile, appendError);
                 break;
 
@@ -151,7 +226,11 @@ class Program
                 break;
 
             case "cd":
-                HandleCd(args, errorFile, appendError);
+                HandleCd(
+                    args,
+                    errorFile,
+                    appendError
+                );
                 break;
 
             default:
@@ -316,6 +395,7 @@ class Program
             if (c == '>')
             {
                 string prefix = current.ToString();
+
                 bool isAppend =
                     i + 1 < input.Length &&
                     input[i + 1] == '>';
@@ -369,6 +449,7 @@ class Program
                 if (argumentStarted)
                 {
                     args.Add(current.ToString());
+
                     current.Clear();
                     argumentStarted = false;
                 }
@@ -393,7 +474,11 @@ class Program
     {
         if (args.Length == 0)
         {
-            PrepareErrorFile(errorFile, appendError);
+            PrepareErrorFile(
+                errorFile,
+                appendError
+            );
+
             return;
         }
 
@@ -412,20 +497,27 @@ class Program
                     errorFile,
                     appendError
                 );
+
                 return;
             }
 
             Directory.SetCurrentDirectory(home);
-            PrepareErrorFile(errorFile, appendError);
+
+            PrepareErrorFile(
+                errorFile,
+                appendError
+            );
+
             return;
         }
 
-        string targetPath = Path.IsPathRooted(directory)
-            ? directory
-            : Path.Combine(
-                Directory.GetCurrentDirectory(),
-                directory
-            );
+        string targetPath =
+            Path.IsPathRooted(directory)
+                ? directory
+                : Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    directory
+                );
 
         if (!Directory.Exists(targetPath))
         {
@@ -434,6 +526,7 @@ class Program
                 errorFile,
                 appendError
             );
+
             return;
         }
 
@@ -441,7 +534,10 @@ class Program
             Path.GetFullPath(targetPath)
         );
 
-        PrepareErrorFile(errorFile, appendError);
+        PrepareErrorFile(
+            errorFile,
+            appendError
+        );
     }
 
     static void HandleType(
@@ -461,10 +557,12 @@ class Program
                 outputFile,
                 appendOutput
             );
+
             return;
         }
 
-        string? executablePath = FindExecutable(command);
+        string? executablePath =
+            FindExecutable(command);
 
         if (executablePath != null)
         {
@@ -473,6 +571,7 @@ class Program
                 outputFile,
                 appendOutput
             );
+
             return;
         }
 
@@ -491,13 +590,19 @@ class Program
         if (string.IsNullOrEmpty(path))
             return null;
 
-        foreach (string directory in path.Split(Path.PathSeparator))
+        foreach (
+            string directory
+            in path.Split(Path.PathSeparator)
+        )
         {
             if (string.IsNullOrEmpty(directory))
                 continue;
 
             string fullPath =
-                Path.Combine(directory, command);
+                Path.Combine(
+                    directory,
+                    command
+                );
 
             if (!File.Exists(fullPath))
                 continue;
@@ -508,9 +613,15 @@ class Program
                     File.GetUnixFileMode(fullPath);
 
                 bool executable =
-                    mode.HasFlag(UnixFileMode.UserExecute) ||
-                    mode.HasFlag(UnixFileMode.GroupExecute) ||
-                    mode.HasFlag(UnixFileMode.OtherExecute);
+                    mode.HasFlag(
+                        UnixFileMode.UserExecute
+                    ) ||
+                    mode.HasFlag(
+                        UnixFileMode.GroupExecute
+                    ) ||
+                    mode.HasFlag(
+                        UnixFileMode.OtherExecute
+                    );
 
                 if (executable)
                     return fullPath;
@@ -532,7 +643,8 @@ class Program
         bool appendOutput,
         bool appendError)
     {
-        string? executablePath = FindExecutable(command);
+        string? executablePath =
+            FindExecutable(command);
 
         if (executablePath == null)
         {
@@ -541,23 +653,28 @@ class Program
                 errorFile,
                 appendError
             );
+
             return;
         }
 
-        var processInfo = new ProcessStartInfo
-        {
-            FileName = "/usr/bin/env",
-            UseShellExecute = false,
-            RedirectStandardOutput = outputFile != null,
-            RedirectStandardError = errorFile != null
-        };
+        var processInfo =
+            new ProcessStartInfo
+            {
+                FileName = "/usr/bin/env",
+                UseShellExecute = false,
+                RedirectStandardOutput =
+                    outputFile != null,
+                RedirectStandardError =
+                    errorFile != null
+            };
 
         processInfo.ArgumentList.Add(command);
 
         foreach (string arg in args)
             processInfo.ArgumentList.Add(arg);
 
-        using Process? process = Process.Start(processInfo);
+        using Process? process =
+            Process.Start(processInfo);
 
         if (process == null)
             return;
@@ -566,27 +683,41 @@ class Program
         string? stderr = null;
 
         if (outputFile != null)
-            stdout = process.StandardOutput.ReadToEnd();
+            stdout =
+                process.StandardOutput.ReadToEnd();
 
         if (errorFile != null)
-            stderr = process.StandardError.ReadToEnd();
+            stderr =
+                process.StandardError.ReadToEnd();
 
         process.WaitForExit();
 
         if (outputFile != null)
         {
             if (appendOutput)
-                File.AppendAllText(outputFile, stdout ?? "");
+                File.AppendAllText(
+                    outputFile,
+                    stdout ?? ""
+                );
             else
-                File.WriteAllText(outputFile, stdout ?? "");
+                File.WriteAllText(
+                    outputFile,
+                    stdout ?? ""
+                );
         }
 
         if (errorFile != null)
         {
             if (appendError)
-                File.AppendAllText(errorFile, stderr ?? "");
+                File.AppendAllText(
+                    errorFile,
+                    stderr ?? ""
+                );
             else
-                File.WriteAllText(errorFile, stderr ?? "");
+                File.WriteAllText(
+                    errorFile,
+                    stderr ?? ""
+                );
         }
     }
 }
